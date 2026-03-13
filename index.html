@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DIMENSIONERS — Drone Signal Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- DARK / LIGHT TOGGLE BUTTON — top right corner                -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" aria-label="Toggle theme">
+  <div style="position:relative">
+    <div class="toggle-ripple" id="toggle-ripple"></div>
+  </div>
+  <div class="toggle-track">
+    <div class="toggle-thumb">
+      <!-- Moon icon (shown in dark mode) -->
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" fill="#C4E6F5" stroke="#7ECFDE" stroke-width="1.5"/>
+      </svg>
+      <!-- Sun icon (shown in light mode) -->
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="4" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.5"/>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <span class="toggle-label" id="toggle-label">DARK</span>
+</button>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <div style="position:absolute;top:0;left:0;z-index:20;padding:18px 32px;display:flex;align-items:center;gap:12px;">
+    <img src="logo.png" alt="Dimensioners Logo" style="height:36px;width:auto;filter:drop-shadow(0 0 10px rgba(126,207,222,0.8)) brightness(1.15);">
+    <span style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1;">
+      <span style="color:#7ECFDE;">DIMENSION</span><span style="color:#ffffff;">ERS</span>
+    </span>
+  </div>
+  <div class="hero-grid">
+    <div class="hero-left">
+      <div class="hero-badge">This is just the prototype of the software</div>
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:10px">
+        <img src="logo.png" alt="Dimensioners Logo" style="height:80px;width:auto;filter:drop-shadow(0 0 16px rgba(126,207,222,0.7)) brightness(1.15);flex-shrink:0;">
+        <h1 class="hero-title" style="margin-bottom:0"><span style="color:#7ECFDE">MAG-</span><span style="color:#ffffff">NULL</span></h1>
+      </div>
+      <p class="hero-sub" style="font-family:var(--f-label);font-size:11px;letter-spacing:4px;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:28px">Counter-Drone Detection Platform</p>
+      <p class="hero-sub">Drones go silent the moment they lock onto a target. <span style="color:#7ECFDE;font-weight:600">MAG-NULL catches them before that</span> — in the only window where they're still transmitting. Passive RF signal intelligence. Zero emissions. Legally deployable anywhere.</p>
+      <div class="hero-pills">
+        <span class="pill">Python 3.10+</span>
+        <span class="pill">NumPy · SciPy</span>
+        <span class="pill">WebSocket RFC 6455</span>
+        <span class="pill green">● LOW → HIGH Threat</span>
+        <span class="pill amber">⚡ 13 Hz Realtime</span>
+        <span class="pill red">🔴 RF Silence Detection</span>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-card"><div class="stat-n">3.17<span style="font-size:18px">ms</span></div><div class="stat-l">Per Tick (23× Margin)</div></div>
+        <div class="stat-card"><div class="stat-n">4</div><div class="stat-l">Drone Protocols</div></div>
+        <div class="stat-card"><div class="stat-n">$534</div><div class="stat-l">Hardware Per Node</div></div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="radar-wrap">
+        <div class="radar-circle"></div><div class="radar-circle"></div><div class="radar-circle"></div>
+        <div class="radar-circle"></div><div class="radar-circle"></div>
+        <div class="radar-cross"></div>
+        <div class="radar-sweep"></div>
+        <div class="radar-center"></div>
+        <div class="radar-blip b1"><div class="blip-ring"></div></div>
+        <div class="radar-blip b2"><div class="blip-ring"></div></div>
+        <div class="radar-blip b3"><div class="blip-ring"></div></div>
+        <div class="radar-blip b4"><div class="blip-ring"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-ind" onclick="document.getElementById('nav').scrollIntoView({behavior:'smooth'})">
+    <span>EXPLORE</span>
+    <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"><path d="M8 3v10M3 8l5 5 5-5"/></svg>
+  </div>
+</section>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+  <div class="nav-inner">
+    <div class="nav-logo" style="display:flex;align-items:center;gap:10px;padding:12px 0;">
+      <img src="logo.png" alt="Dimensioners Logo" style="height:32px;width:auto;filter:drop-shadow(0 0 8px rgba(10,110,138,0.9)) brightness(1.1);">
+      <span style="font-family:var(--f-display);font-size:17px;font-weight:700;letter-spacing:1px;"><span style="color:var(--teal);">DIMENSIONERS</span></span>
+    </div>
+    <button class="tab-btn active" onclick="switchTab('overview',this)">Overview</button>
+    <button class="tab-btn" onclick="switchTab('pipeline',this)">Pipeline</button>
+    <button class="tab-btn" onclick="switchTab('protocols',this)">Protocols</button>
+    <button class="tab-btn" onclick="switchTab('backend',this)">Backend</button>
+    <button class="tab-btn" onclick="switchTab('frontend',this)">Frontend</button>
+    <button class="tab-btn" onclick="switchTab('hardware',this)">Hardware</button>
+    <button class="tab-btn" onclick="switchTab('ml',this)">ML Roadmap</button>
+    <button class="tab-btn" onclick="switchTab('references',this)">References</button>
+    <button class="tab-btn" onclick="switchTab('gallery',this)">Gallery</button>
+    <button class="tab-btn" onclick="switchTab('prompt',this)">Rebuild Prompt</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="tab-overview" class="section-panel active">
+  <div class="sec-header">
+    <div class="sec-eyebrow">What & Why</div>
+    <h2 class="sec-title">The Problem MAG-NULL Solves</h2>
+    <p class="sec-desc">Modern drones operate in two phases — the second is undetectable by all existing systems. MAG-NULL exploits the only window that exists: the RF active phase.</p>
+  </div>
+  <div class="g2" style="margin-bottom:28px">
+    <div class="card" style="border-left:4px solid var(--red)">
+      <div class="card-label">The Threat</div>
+      <div class="card-title">Two-Phase Drone Attack</div>
+      <div class="card-body">Phase 1: GPS + active radio datalink to operator. Phase 2: Onboard AI locks target, severs all radio communication. The drone becomes <strong>invisible to every RF system on Earth</strong> the moment it goes silent.</div>
+    </div>
+    <div class="card" style="border-left:4px solid var(--green)">
+      <div class="card-label">The Solution</div>
+      <div class="card-title">Catch It Before Silence</div>
+      <div class="card-body">Every drone must transmit during Phase 1. MAG-NULL passively listens, fingerprints the protocol, assesses threat level, and flags RF silence the <strong>moment it occurs</strong> — before the kill phase begins.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:28px">
+    <div class="card-label">Competitive Landscape</div>
+    <div class="card-title" style="margin-bottom:20px">Why Existing Solutions Fall Short</div>
+    <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead><tr><th>Solution</th><th>Company</th><th>Limitation</th><th>MAG-NULL Advantage</th></tr></thead>
+      <tbody>
+        <tr><td>AeroScope</td><td>DJI</td><td>DJI drones only, $5,000+</td><td>Multi-protocol, open hardware, $534</td></tr>
+        <tr><td>DroneSentry</td><td>DroneShield</td><td>$50,000+ per deployment</td><td>Same sensor fusion, 100× cheaper</td></tr>
+        <tr><td>RF Jammers</td><td>Various</td><td>Illegal in most jurisdictions</td><td>Receive-only — fully legal worldwide</td></tr>
+        <tr><td>Radar</td><td>Blighter</td><td>Cannot identify protocol/type</td><td>Full protocol fingerprinting</td></tr>
+        <tr><td>Camera/CV</td><td>Various</td><td>Fails at night, fog, 1km+</td><td>RF works regardless of visibility</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card"><div class="card-label">Detection</div><div class="card-title">Passive RF Scan</div><div class="card-body">Monitors 2.4 GHz ISM band. Identifies energy bursts above noise floor in real time at 13 Hz.</div></div>
+    <div class="card"><div class="card-label">Classification</div><div class="card-title">Protocol Fingerprinting</div><div class="card-body">Measures hop interval, bandwidth, and modulation to identify AFHDS, ELRS, FASST, or DJI with up to 96% confidence.</div></div>
+    <div class="card"><div class="card-label">Intelligence</div><div class="card-title">Swarm Scoring</div><div class="card-body">Five-factor 0–100 score detects coordinated multi-drone attacks. 82+ = Organized Intrusion.</div></div>
+  </div>
+</div>
+
+<!-- ═══ PIPELINE ═══ -->
+<div id="tab-pipeline" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">11 Stages</div>
+    <h2 class="sec-title">Detection Pipeline</h2>
+    <p class="sec-desc">Click any stage to explore exactly what happens there — the math, the code, and why it matters.</p>
+  </div>
+  <div class="pipeline-layout">
+    <div class="pipeline-steps" id="pipeline-steps"></div>
+    <div class="step-detail-pane" id="step-detail">
+      <div class="detail-empty">
+        <div class="detail-icon">◎</div>
+        <span>SELECT A STAGE TO EXPLORE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PROTOCOLS ═══ -->
+<div id="tab-protocols" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">RF Signatures</div>
+    <h2 class="sec-title">Drone Protocol Fingerprints</h2>
+    <p class="sec-desc">Each protocol has a unique RF signature — hop interval, bandwidth, and modulation. These are the fingerprints MAG-NULL matches in real time.</p>
+  </div>
+  <div class="proto-grid">
+    <div class="proto-card" style="--c:#10B981"><div class="proto-dot"></div><div class="proto-name">AFHDS</div><div class="proto-full">FlySky System</div><div class="proto-spec"><span>Hop Interval: 20 ms</span><span>Bandwidth: 0.5 MHz</span><span>Modulation: GFSK</span><span>Channels: 16</span></div><div class="proto-threat" style="color:#065F46;border-color:#10B981;background:#D1FAE5">LOW THREAT</div></div>
+    <div class="proto-card" style="--c:#F59E0B"><div class="proto-dot"></div><div class="proto-name">ELRS</div><div class="proto-full">ExpressLRS</div><div class="proto-spec"><span>Hop Interval: 4 ms</span><span>Bandwidth: 0.5 MHz</span><span>Modulation: LoRa CSS</span><span>Channels: 24</span></div><div class="proto-threat" style="color:#92400E;border-color:#F59E0B;background:#FEF3C7">MEDIUM THREAT</div></div>
+    <div class="proto-card" style="--c:#EF4444"><div class="proto-dot"></div><div class="proto-name">FASST</div><div class="proto-full">Futaba System</div><div class="proto-spec"><span>Hop Interval: 7 ms</span><span>Bandwidth: 1.0 MHz</span><span>Modulation: GFSK</span><span>Channels: 36</span></div><div class="proto-threat" style="color:#92400E;border-color:#F59E0B;background:#FEF3C7">MEDIUM THREAT</div></div>
+    <div class="proto-card" style="--c:#DC2626"><div class="proto-dot"></div><div class="proto-name">OcuSync</div><div class="proto-full">DJI OcuSync 2.0</div><div class="proto-spec"><span>Hop Interval: 10 ms</span><span>Bandwidth: 10.0 MHz</span><span>Modulation: OFDM</span><span>Channels: 8</span></div><div class="proto-threat" style="color:#991B1B;border-color:#DC2626;background:#FEE2E2">HIGH THREAT</div></div>
+  </div>
+  <div style="margin-top:32px" class="g2">
+    <div class="card">
+      <div class="card-label">Classification Logic</div>
+      <div class="card-title">Rule-Based Decision Tree</div>
+      <pre class="code-block">if OFDM and BW > 5000 kHz  →  DJI   (96%)
+if chirp sweep detected    →  ELRS  (93%)
+if 18 ≤ hop ≤ 22 ms        →  AFHDS (88%)
+if  5 ≤ hop ≤  9 ms        →  FASST (83%)
+else                       →  UNKNOWN (40%)</pre>
+    </div>
+    <div class="card">
+      <div class="card-label">Swarm Classification</div>
+      <div class="card-title">Score → Threat Level</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <div class="score-row-green" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#F0FDF4"><span style="font-family:var(--f-mono);font-size:11px;color:#065F46">0 – 15</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#059669">NO SIGNAL</span></div>
+        <div class="score-row-green" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#F0FDF4"><span style="font-family:var(--f-mono);font-size:11px;color:#065F46">15 – 30</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#059669">SOLO OPERATOR</span></div>
+        <div class="score-row-amber" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#FFFBEB"><span style="font-family:var(--f-mono);font-size:11px;color:#92400E">30 – 50</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#D97706">DUAL CONTACT</span></div>
+        <div class="score-row-amber" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#FFFBEB"><span style="font-family:var(--f-mono);font-size:11px;color:#92400E">50 – 68</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#D97706">COORDINATED PAIR</span></div>
+        <div class="score-row-red" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#FEF2F2"><span style="font-family:var(--f-mono);font-size:11px;color:#991B1B">68 – 82</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#DC2626">SWARM DETECTED</span></div>
+        <div class="score-row-red" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:6px;background:#FEF2F2"><span style="font-family:var(--f-mono);font-size:11px;color:#991B1B">82 – 100</span><span style="font-family:var(--f-label);font-size:12px;font-weight:700;color:#DC2626">ORGANIZED INTRUSION</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BACKEND ═══ -->
+<div id="tab-backend" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">Python · Zero External Deps</div>
+    <h2 class="sec-title">Backend Architecture</h2>
+    <p class="sec-desc">Five Python files. Pure stdlib + NumPy + SciPy. No FastAPI, no Flask. Runs anywhere Python runs.</p>
+  </div>
+  <div class="g2" style="margin-bottom:24px">
+    <div class="card"><div class="card-label">main.py</div><div class="card-title">Entry Point</div><div class="card-body">Starts HTTP server (port 8080), WebSocket server (port 8765), and pipeline tick loop simultaneously using three threads. One command runs everything.</div></div>
+    <div class="card"><div class="card-label">pipeline.py</div><div class="card-title">Master Tick Loop</div><div class="card-body">Runs every 75ms. Wires all DSP stages in sequence. Returns a fully-formed JSON state dict on every tick — spectrum, contacts, swarm score, alerts.</div></div>
+    <div class="card"><div class="card-label">simulator.py</div><div class="card-title">IQ Signal Generator</div><div class="card-body">Generates mathematically accurate IQ bursts for all 4 protocols. Seeded RNG for reproducibility. Gaussian burst shapes, LoRa chirp sweep, OFDM flat spectrum.</div></div>
+    <div class="card"><div class="card-label">dsp.py</div><div class="card-title">Signal Processing</div><div class="card-body">512-point Hanning-windowed FFT. Rolling 12th-percentile noise floor. Energy cluster detection. Feature extraction. Rule-based classifier. Five-factor swarm scorer.</div></div>
+    <div class="card"><div class="card-label">ws_server.py</div><div class="card-title">WebSocket Server</div><div class="card-body">Full RFC 6455 implementation from scratch — SHA1 handshake, frame encoding/decoding, multi-client broadcast, dead connection cleanup. Pure Python stdlib only.</div></div>
+    <div class="card perf-card" style="background:#EFF9FC;border-color:var(--teal2)">
+      <div class="card-label" style="color:var(--teal)">Performance</div>
+      <div class="card-title">Benchmarks (Live)</div>
+      <div class="card-body">
+        <div class="metric"><div class="metric-head"><span class="metric-label">Full Pipeline</span><span class="metric-val">3.17ms / 23× margin</span></div><div class="metric-track"><div class="metric-fill" style="width:14%"></div></div></div>
+        <div class="metric"><div class="metric-head"><span class="metric-label">512pt FFT</span><span class="metric-val">0.008ms</span></div><div class="metric-track"><div class="metric-fill" style="width:1%"></div></div></div>
+        <div class="metric"><div class="metric-head"><span class="metric-label">Swarm Analysis</span><span class="metric-val">0.1ms</span></div><div class="metric-track"><div class="metric-fill" style="width:3%"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">Threading Model</div>
+    <div class="card-title" style="margin-bottom:16px">Three Concurrent Threads</div>
+    <div class="g3">
+      <div style="background:var(--thread-bg);border-radius:10px;padding:16px;transition:background 0.4s ease"><div style="font-family:var(--f-mono);font-size:10px;letter-spacing:2px;color:var(--teal);margin-bottom:8px">THREAD 1 · MAIN</div><div style="font-family:var(--f-label);font-size:13px;font-weight:700;color:var(--navy)">HTTP Server</div><div style="font-size:12px;color:var(--stone);margin-top:4px">Serves frontend HTML. Handles scenario switch API. Runs on main thread.</div></div>
+      <div style="background:var(--thread-bg);border-radius:10px;padding:16px;transition:background 0.4s ease"><div style="font-family:var(--f-mono);font-size:10px;letter-spacing:2px;color:var(--teal);margin-bottom:8px">THREAD 2 · DAEMON</div><div style="font-family:var(--f-label);font-size:13px;font-weight:700;color:var(--navy)">WebSocket Accept</div><div style="font-size:12px;color:var(--stone);margin-top:4px">Accepts browser connections. Each client gets its own micro-thread.</div></div>
+      <div style="background:var(--thread-bg);border-radius:10px;padding:16px;transition:background 0.4s ease"><div style="font-family:var(--f-mono);font-size:10px;letter-spacing:2px;color:var(--teal);margin-bottom:8px">THREAD 3 · DAEMON</div><div style="font-family:var(--f-label);font-size:13px;font-weight:700;color:var(--navy)">Pipeline Tick</div><div style="font-size:12px;color:var(--stone);margin-top:4px">Ticks at 13 Hz. Produces JSON. Broadcasts to all clients simultaneously.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FRONTEND ═══ -->
+<div id="tab-frontend" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">Single HTML File · No Build Tools</div>
+    <h2 class="sec-title">Dashboard Design</h2>
+    <p class="sec-desc">Pure HTML + CSS + Vanilla JS. No npm, no React, no webpack. Opens in any browser, connects to backend automatically.</p>
+  </div>
+  <div class="g2" style="margin-bottom:24px">
+    <div class="card">
+      <div class="card-label">Layout System</div>
+      <div class="card-title">CSS Grid — 4 Rows × 2 Columns</div>
+      <pre class="code-block">grid-rows:    64px  1fr  140px  108px
+grid-cols:    1fr   256px
+
+Row 1: Header — full width, threat status
+Row 2: Waterfall + Table | Scenarios + Log
+Row 3: Hop Timeline + Pipeline | Classifier
+Row 4: Swarm Analysis — full width</pre>
+    </div>
+    <div class="card">
+      <div class="card-label">Color System</div>
+      <div class="card-title">CSS Variables</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:4px;background:#04070d;border:1px solid var(--border)"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--stone)">#04070d — Deep background</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:4px;background:#00e5a0"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--stone)">#00e5a0 — LOW / Active / Live</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:4px;background:#f5a623"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--stone)">#f5a623 — MEDIUM / Warning</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:4px;background:#ff3355"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--stone)">#ff3355 — HIGH / Critical</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:4px;background:#00aaff"></div><span style="font-family:var(--f-mono);font-size:11px;color:var(--stone)">#00aaff — Contact counter</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card"><div class="card-label">Typography</div><div class="card-title">Bebas Neue</div><div class="card-body">Impact numbers — threat status, contact count, swarm score. Legible from 5 meters.</div></div>
+    <div class="card"><div class="card-label">Typography</div><div class="card-title">Rajdhani</div><div class="card-body">UI labels, panel headers, protocol names. Military-technical aesthetic.</div></div>
+    <div class="card"><div class="card-label">Typography</div><div class="card-title">JetBrains Mono</div><div class="card-body">All data — frequencies, timestamps, IDs. Monospace for aligned numeric output.</div></div>
+    <div class="card"><div class="card-label">Component</div><div class="card-title">Waterfall Canvas</div><div class="card-body">512×160px. Thermal colormap. 140-row history. Single putImageData call per render.</div></div>
+    <div class="card"><div class="card-label">Component</div><div class="card-title">Swarm Ring</div><div class="card-body">Canvas arc 0–100. Green→amber→red gradient. Border alarm pulses above 68.</div></div>
+    <div class="card"><div class="card-label">Component</div><div class="card-title">RF Silence Banner</div><div class="card-body">Fixed top-center. Hidden until rf_silent=true. Full-width pulsing red alert.</div></div>
+  </div>
+</div>
+
+<!-- ═══ HARDWARE ═══ -->
+<div id="tab-hardware" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">From Simulation → Real Deployment</div>
+    <h2 class="sec-title">Hardware Design</h2>
+    <p class="sec-desc">One code change converts the simulator to a real HackRF One. Everything else stays identical.</p>
+  </div>
+  <div class="g2" style="margin-bottom:24px">
+    <div class="card">
+      <div class="card-label">The One Code Change</div>
+      <div class="card-title">Simulation → Hardware</div>
+      <pre class="code-block"># SIMULATION (current)
+spectrum = simulator.generate_spectrum(t)
+
+# PRODUCTION — plug in HackRF One
+sdr = SoapySDR.Device({'driver':'hackrf'})
+sdr.setSampleRate(0, 20e6)
+sdr.setCenterFreq(0, 2.44e9)
+buff = np.zeros(512, dtype=np.complex64)
+sdr.readStream(rx_stream, [buff], 512)
+spectrum = compute_spectrum(buff)  # same!</pre>
+    </div>
+    <div class="card">
+      <div class="card-label">Legal Status</div>
+      <div class="card-title">Fully Legal — Receive Only</div>
+      <div class="card-body" style="margin-top:12px">
+        <p>MAG-NULL transmits zero RF energy. Passive monitoring of ISM bands (2.4 GHz, 5.8 GHz) requires no license in any major jurisdiction.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+          <span class="tag green">✓ FCC Part 15 (USA)</span>
+          <span class="tag green">✓ TRAI (India)</span>
+          <span class="tag green">✓ Ofcom (UK)</span>
+          <span class="tag green">✓ No transmission</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-label">Bill of Materials</div>
+    <div class="card-title" style="margin-bottom:20px">Single Node — $534 Total</div>
+    <div class="bom-row"><span class="bom-item">HackRF One SDR (Great Scott Gadgets)</span><span class="bom-price">$299</span></div>
+    <div class="bom-row"><span class="bom-item">2.4 GHz Directional Patch Antenna (10 dBi)</span><span class="bom-price">$18</span></div>
+    <div class="bom-row"><span class="bom-item">2.4 GHz Omnidirectional Antenna (5 dBi)</span><span class="bom-price">$12</span></div>
+    <div class="bom-row"><span class="bom-item">Low-Noise Amplifier (+20 dB gain)</span><span class="bom-price">$25</span></div>
+    <div class="bom-row"><span class="bom-item">SMA Cables and Connectors</span><span class="bom-price">$20</span></div>
+    <div class="bom-row"><span class="bom-item">Raspberry Pi 5 (8GB)</span><span class="bom-price">$90</span></div>
+    <div class="bom-row"><span class="bom-item">32GB MicroSD + Weatherproof Enclosure</span><span class="bom-price">$45</span></div>
+    <div class="bom-row"><span class="bom-item">Power Supply</span><span class="bom-price">$25</span></div>
+    <div class="bom-row" style="border-top:2px solid var(--border)"><span class="bom-item" style="font-weight:700;color:var(--navy)">Total Per Node</span><span class="bom-price" style="font-size:18px">~$534</span></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-label">Phase 2 — Post-Silence</div>
+      <div class="card-title">Sensor Fusion After RF Silence</div>
+      <div style="overflow-x:auto;margin-top:12px">
+      <table class="data-table">
+        <thead><tr><th>Sensor</th><th>Range</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>MEMS Mic Array (4×)</td><td>~500m</td><td>$60</td></tr>
+          <tr><td>FLIR Lepton 3.5 Thermal</td><td>~500m</td><td>$250</td></tr>
+          <tr><td>USB Camera + YOLOv8</td><td>~300m</td><td>$35</td></tr>
+          <tr><td>RPLiDAR A1 (360°)</td><td>~12m</td><td>$99</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Multi-Node</div>
+      <div class="card-title">Triangulation via TDOA</div>
+      <div class="card-body">Three nodes in a triangle + GPS-disciplined timing ($15 module) = position fix accurate to 10–30 meters at 500m baseline. Sufficient to identify which perimeter sector a drone enters from.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px">
+        <span class="tag blue">2 nodes → bearing</span>
+        <span class="tag blue">3 nodes → position</span>
+        <span class="tag blue">GPS sync ~15μs</span>
+        <span class="tag blue">10–30m accuracy</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ML ROADMAP ═══ -->
+<div id="tab-ml" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">7 Models · 3 Phases</div>
+    <h2 class="sec-title">Machine Learning Roadmap</h2>
+    <p class="sec-desc">The rule-based classifier works perfectly today. These models upgrade it to probabilistic, robust, and multi-modal intelligence.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card" style="border-left:4px solid var(--red)"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px"><div><div class="card-label">Build First · Phase 1</div><div class="card-title">Spectrogram CNN Classifier</div><div class="card-body" style="max-width:600px">MobileNetV2 trained on 128×128 spectrogram images. Your simulator auto-generates perfectly labeled training data. 10,000 images + 20 epochs on CPU = >94% accuracy. Replaces the rule-based classify_protocol() function.</div></div><div style="text-align:right;flex-shrink:0"><span class="tag amber">MobileNetV2</span><span class="tag blue">Auto-labeled data</span></div></div></div>
+    <div class="card" style="border-left:4px solid var(--amber)"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px"><div><div class="card-label">Build Second · Phase 1</div><div class="card-title">RF Silence Classifier (LSTM)</div><div class="card-body" style="max-width:600px">10-step RSSI sequence → TERMINAL_GUIDANCE vs OUT_OF_RANGE. Positive RSSI slope before silence = approaching target. Negative slope = out of range. Critical for reducing false alarms.</div></div><div style="text-align:right;flex-shrink:0"><span class="tag amber">LSTM</span></div></div></div>
+    <div class="card" style="border-left:4px solid var(--teal)"><div class="card-label">Phase 2</div><div class="card-title">Acoustic Motor Classifier</div><div class="card-body">YAMNet fine-tuned on UAV sound dataset. Detects drone motor harmonic frequency signatures using MEMS microphone array. Works after RF silence. ~500m range.</div></div>
+    <div class="card" style="border-left:4px solid var(--teal)"><div class="card-label">Phase 2</div><div class="card-title">Visual Drone Detector (YOLOv8)</div><div class="card-body">Fine-tuned on Roboflow drone detection dataset. 50+ labeled datasets available. Daylight only, ~300m range. Combined with thermal for 24/7 coverage.</div></div>
+    <div class="card" style="border-left:4px solid var(--stone2)"><div class="card-label">Phase 3</div><div class="card-title">Operator Fingerprinting (Siamese Network)</div><div class="card-body">Matches controller transmission patterns to identify specific operators across multiple incidents. Requires real hardware captures. Long-term intelligence capability.</div></div>
+  </div>
+</div>
+
+<!-- ═══ REFERENCES ═══ -->
+<div id="tab-references" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">Academic · Industry · Open Source</div>
+    <h2 class="sec-title">References & Sources</h2>
+  </div>
+  <h3 style="font-family:var(--f-label);font-size:14px;font-weight:700;color:var(--navy);letter-spacing:1px;margin-bottom:16px;text-transform:uppercase">Academic Papers</h3>
+  <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:36px">
+    <div class="ref-card"><div class="ref-year">Ezuma et al. · IEEE Access · 2020</div><div class="ref-title">Detection and Classification of UAVs Using RF Fingerprinting with Deep Neural Networks</div><div class="ref-body">98.9% accuracy on spectrogram CNN classification. Directly validates MAG-NULL's ML approach.</div></div>
+    <div class="ref-card"><div class="ref-year">Al-Sa'd et al. · IEEE Transactions · 2019</div><div class="ref-title">RF-Based Drone Detection and Identification Using Deep Learning Approaches</div><div class="ref-body">Multi-class drone identification from IQ samples. Confirms protocol fingerprinting feasibility.</div></div>
+    <div class="ref-card"><div class="ref-year">Swinney & Woods · IET Signal Processing · 2021</div><div class="ref-title">UAV Operating Mode Classification Using Deep Residual Learning Feature Extraction</div><div class="ref-body">Passive RF identification of flight mode — hovering, traveling, payload delivery.</div></div>
+    <div class="ref-card"><div class="ref-year">Medaiyese et al. · IEEE IoT Journal · 2021</div><div class="ref-title">Wavelet Transform Analytics for RF-Based UAV Surveillance Using Machine Learning</div><div class="ref-body">99.2% classification rate. Wavelet feature extraction as alternative to FFT approach.</div></div>
+  </div>
+  <h3 style="font-family:var(--f-label);font-size:14px;font-weight:700;color:var(--navy);letter-spacing:1px;margin-bottom:16px;text-transform:uppercase">Open Datasets</h3>
+  <div class="card" style="margin-bottom:36px"><div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Dataset</th><th>Source</th><th>Contents</th></tr></thead><tbody><tr><td>Anti-UAV Challenge</td><td>Tsinghua University</td><td>10,000+ IR + RGB drone frames</td></tr><tr><td>DroneRF Dataset</td><td>IEEE DataPort</td><td>Real RF IQ captures, 3 drone types</td></tr><tr><td>Roboflow Drone Detection</td><td>Roboflow Universe</td><td>50+ labeled CV drone datasets</td></tr><tr><td>UAV Sound Dataset</td><td>Kaggle</td><td>Acoustic motor recordings, 10 drone types</td></tr><tr><td>RadioML 2018.01A</td><td>DeepSig Inc.</td><td>24 modulation types, 220M IQ samples</td></tr></tbody></table></div></div>
+  <h3 style="font-family:var(--f-label);font-size:14px;font-weight:700;color:var(--navy);letter-spacing:1px;margin-bottom:16px;text-transform:uppercase">Key Libraries</h3>
+  <div class="g3">
+    <div class="card"><div class="card-label">SDR Hardware</div><div class="card-title">SoapySDR</div><div class="card-body">Universal SDR abstraction layer. Works with HackRF, RTL-SDR, ADALM-PLUTO. github.com/pothosware/SoapySDR</div></div>
+    <div class="card"><div class="card-label">Signal Processing</div><div class="card-title">NumPy / SciPy</div><div class="card-body">512-pt FFT in 0.008ms. FFTW3 wrapper (pyfftw) for 5.6× additional speedup.</div></div>
+    <div class="card"><div class="card-label">Visualization</div><div class="card-title">GQRX / SDR#</div><div class="card-body">Real-time SDR spectrum analyzers. Used to validate simulator output accuracy before coding.</div></div>
+  </div>
+</div>
+
+<!-- ═══ GALLERY ═══ -->
+<div id="tab-gallery" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">Build Log · Media</div>
+    <h2 class="sec-title">Gallery</h2>
+    <p class="sec-desc">Photos and videos from the build — hardware assembly, brainstorming sessions, live demo footage, and the working MAG-NULL system in action.</p>
+  </div>
+  <div class="gal-filter-row" id="gal-filters">
+    <button class="gal-filter-btn active" onclick="filterGal('all',this)">All</button>
+    <button class="gal-filter-btn" onclick="filterGal('demo',this)">Live Demo</button>
+    <button class="gal-filter-btn" onclick="filterGal('build',this)">Build</button>
+    <button class="gal-filter-btn" onclick="filterGal('brainstorm',this)">Brainstorm</button>
+    <button class="gal-filter-btn" onclick="filterGal('hardware',this)">Hardware</button>
+  </div>
+  <div class="gal-section-divider">Videos</div>
+  <div class="gal-grid-video" id="video-grid">
+    <div class="gal-card" data-cat="demo" onclick="openLightbox('DIMENSIONERS Live Demo — Swarm Scenario','Demo · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#0D2137"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#7ECFDE" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#7ECFDE"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Demo · Video</div><div class="gal-info-name">MAG-NULL Live Demo — Swarm Scenario</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
+    <div class="gal-card" data-cat="demo" onclick="openLightbox('RF Silence Detection Walkthrough','Demo · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#1a0808"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#FCA5A5" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#FCA5A5"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Demo · Video</div><div class="gal-info-name">RF Silence Detection Walkthrough</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
+    <div class="gal-card" data-cat="build" onclick="openLightbox('Assembly Time-lapse','Build · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#0a1f0a"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#6EE7B7" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#6EE7B7"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Build · Video</div><div class="gal-info-name">Assembly Time-lapse</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
+  </div>
+  <div class="gal-section-divider" style="margin-top:28px">Photos</div>
+  <div class="gal-grid-photo" id="photo-grid">
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('HackRF One + Antenna Setup','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">HackRF One + Antenna Setup</div></div></div>
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('Raspberry Pi 5 Node — Enclosure','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">Raspberry Pi 5 Node — Enclosure</div></div></div>
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('LNA + SMA Cabling','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">LNA + SMA Cabling</div></div></div>
+    <div class="gal-card" data-cat="build" onclick="openLightbox('Soldering &amp; Wiring Session','Build · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Build</div><div class="gal-info-name">Soldering &amp; Wiring Session</div></div></div>
+    <div class="gal-card" data-cat="build" onclick="openLightbox('Pi 5 First Boot','Build · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Build</div><div class="gal-info-name">Pi 5 First Boot</div></div></div>
+    <div class="gal-card" data-cat="brainstorm" onclick="openLightbox('Whiteboard — Pipeline Design','Brainstorm · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Brainstorm</div><div class="gal-info-name">Whiteboard — Pipeline Design</div></div></div>
+    <div class="gal-card" data-cat="brainstorm" onclick="openLightbox('Team Planning Session','Brainstorm · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Brainstorm</div><div class="gal-info-name">Team Planning Session</div></div></div>
+    <div class="gal-card" data-cat="brainstorm" onclick="openLightbox('Architecture Sketch — Initial Concept','Brainstorm · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Brainstorm</div><div class="gal-info-name">Architecture Sketch — Initial Concept</div></div></div>
+    <div class="gal-card" data-cat="demo" onclick="openLightbox('Dashboard — Swarm Detected','Live Demo · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Live Demo</div><div class="gal-info-name">Dashboard — Swarm Detected</div></div></div>
+    <div class="gal-card" data-cat="demo" onclick="openLightbox('Dashboard — RF Silence Alert','Live Demo · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Live Demo</div><div class="gal-info-name">Dashboard — RF Silence Alert</div></div></div>
+  </div>
+  <div class="gal-upload-zone">
+    <svg width="24" height="24" fill="none" stroke="var(--stone2)" stroke-width="1.4" viewBox="0 0 24 24"><path d="M12 16V8M8 12l4-4 4 4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+    <p>To add your own media, replace the placeholder <code style="font-family:var(--f-mono);font-size:11px;background:var(--cream);padding:1px 5px;border-radius:4px">&lt;div class="gal-placeholder"&gt;</code> inside each card with your actual content</p>
+    <span>Supports &lt;img src="…"&gt; · &lt;video controls src="…"&gt; · &lt;iframe src="https://youtube.com/embed/ID"&gt;</span>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="gal-lightbox" onclick="closeLightbox()">
+  <div class="lb-inner" onclick="event.stopPropagation()">
+    <div class="lb-media" id="lb-media">
+      <svg width="56" height="56" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.2" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24"/><polygon points="22,18 42,28 22,38" fill="rgba(255,255,255,.3)"/></svg>
+    </div>
+    <div class="lb-meta">
+      <div class="lb-meta-left">
+        <div class="lb-cat" id="lb-cat">Category</div>
+        <div class="lb-title" id="lb-title">Title</div>
+      </div>
+      <button class="lb-close-btn" onclick="closeLightbox()">✕ Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REBUILD PROMPT ═══ -->
+<div id="tab-prompt" class="section-panel">
+  <div class="sec-header">
+    <div class="sec-eyebrow">Copy → Paste → Rebuild</div>
+    <h2 class="sec-title">Master Rebuild Prompt</h2>
+    <p class="sec-desc">Give this single prompt to any AI assistant or developer to rebuild the entire MAG-NULL system from scratch — frontend, backend, server, hardware, and performance requirements all in one block.</p>
+  </div>
+  <div class="prompt-box">
+    <div class="prompt-box-title">MAG-NULL Complete Specification</div>
+    <div class="prompt-box-sub">Everything needed to rebuild the full system from zero</div>
+    <div class="prompt-content" id="prompt-text">
+<span class="ph">Build PROJECT MAG-NULL</span> — a real-time passive RF drone detection and threat intelligence dashboard.
+
+<span class="pc">WHAT IT IS:</span> A passive RF signal intelligence system that detects, classifies, and threat-assesses drones by analyzing their radio frequency transmission patterns. Runs entirely in software — no SDR hardware required for demonstration. Four drone protocols simulated with accurate IQ math: AFHDS (FlySky, hop=20ms, 0.5MHz, GFSK, LOW), ELRS (ExpressLRS, hop=4ms, 0.5MHz, LoRa CSS chirp, MEDIUM), FASST (Futaba, hop=7ms, 1.0MHz, GFSK, MEDIUM), DJI OcuSync 2.0 (hop=10ms, 10MHz, OFDM, HIGH).
+
+<span class="pc">BACKEND</span> — Python 3.10+, stdlib + numpy + scipy only. Zero external packages.
+Five files: main.py starts HTTP on port 8080 + WebSocket on 8765 + pipeline tick loop. pipeline.py is the master 75ms tick loop. simulator.py generates IQ bursts using seeded RNG, hop tables, Gaussian burst shapes, LoRa chirp sweep, OFDM flat spectrum. dsp.py: 512-pt windowed FFT, rolling 12th-percentile noise floor, energy detector at noise+6dB, feature extractor, rule-based classifier, five-factor swarm scorer. ws_server.py: RFC 6455 from scratch — stdlib only.
+
+<span class="pc">SERVER</span> — Pure Python stdlib. Zero external deps.
+WebSocket: SHA1 handshake, text frame encode/decode, multi-client broadcast, dead client cleanup. HTTP: SimpleHTTPRequestHandler + GET /api/scenario/{key} + GET /api/scenarios. Three threads: HTTP main, WebSocket daemon, pipeline daemon. Threading lock on state.
+
+<span class="pc">FRONTEND</span> — Single index.html. No build tools. No npm.
+CSS Grid: 4 rows (64px header, flex main, 140px bottom, 108px swarm) × 2 cols. Fonts: Bebas Neue (impact numbers), Rajdhani (labels), JetBrains Mono (data). Colors: bg0=#04070d, green=#00e5a0, amber=#f5a623, red=#ff3355, blue=#00aaff. Waterfall: 512×160 Canvas, thermal colormap, 140-row history, single putImageData. Threat table: sticky header, animated rows, confidence bars, LOW/MEDIUM/HIGH/SILENT badges. Swarm ring: Canvas arc 0–100, border alarm above 68. RF Silence banner: fixed top-center, appears on rf_silent=true. WebSocket auto-reconnects every 2s.
+
+<span class="pc">FIVE SCENARIOS:</span> idle, hobby (TGT-001 AFHDS seed=42), fpv (TGT-002 ELRS seed=17), dji (TGT-003 DJI seed=99), swarm (TGT-004/005/006/007 mixed — all within 800ms), silent (TGT-009 DJI seed=55 — goes RF silent after 6000ms).
+
+<span class="pc">HARDWARE PATH:</span> Replace simulator with SoapySDR.Device({'driver':'hackrf'}), setSampleRate(0, 20e6), setCenterFreq(0, 2.44e9), readStream to complex64 buffer, pass to same compute_spectrum(). HackRF One ($299) + patch antenna ($18) + Raspberry Pi 5 ($90) = $534/node. Receive-only, fully legal.
+
+<span class="pc">PERFORMANCE:</span> Pipeline must complete in &lt;75ms. Confirmed: 3.17ms/tick = 23× margin. Pre-allocate all NumPy buffers. Waterfall capped at 140 rows. Hop history capped at 32 entries.
+    </div>
+    <button class="copy-btn" onclick="copyPrompt()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><path d="M11 5h1a1 1 0 011 1v6a1 1 0 01-1 1H6a1 1 0 01-1-1v-1"/></svg>
+      Copy Prompt
+    </button>
+  </div>
+</div>
+
+</main>
+
+<div id="copy-toast">✓ Copied to clipboard</div>
+<script src="script.js"></script>
+</body>
+</html>
