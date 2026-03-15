@@ -42,13 +42,13 @@
   </div>
   <div class="hero-grid">
     <div class="hero-left">
-      <div class="hero-badge">This is just the prototype of the software</div>
+      <div class="hero-badge"><span id="hero-typewriter"></span><span class="hero-tw-cursor">_</span></div>
       <div style="display:flex;align-items:center;gap:20px;margin-bottom:10px">
         <img src="logo.png" alt="Dimensioners Logo" style="height:80px;width:auto;filter:drop-shadow(0 0 16px rgba(126,207,222,0.7)) brightness(1.15);flex-shrink:0;">
         <h1 class="hero-title" style="margin-bottom:0"><span style="color:#7ECFDE">MAG-</span><span style="color:#ffffff">NULL</span></h1>
       </div>
       <p class="hero-sub" style="font-family:var(--f-label);font-size:11px;letter-spacing:4px;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:28px">Counter-Drone Detection Platform</p>
-      <p class="hero-sub">Drones go silent the moment they lock onto a target. <span style="color:#7ECFDE;font-weight:600">MAG-NULL catches them before that</span> — in the only window where they're still transmitting. Passive RF signal intelligence. Zero emissions. Legally deployable anywhere.</p>
+      <p class="hero-sub" id="hero-scramble">Drones go silent the moment they lock onto a target. <span class="hero-scramble-highlight">MAG-NULL catches them before that</span> — in the only window where they're still transmitting. Passive RF signal intelligence. Zero emissions. Legally deployable anywhere.</p>
       <div class="hero-pills">
         <span class="pill">Python 3.10+</span>
         <span class="pill">NumPy · SciPy</span>
@@ -99,7 +99,6 @@
     <button class="tab-btn" onclick="switchTab('ml',this)">ML Roadmap</button>
     <button class="tab-btn" onclick="switchTab('references',this)">References</button>
     <button class="tab-btn" onclick="switchTab('gallery',this)">Gallery</button>
-    <button class="tab-btn" onclick="switchTab('prompt',this)">Rebuild Prompt</button>
   </div>
 </nav>
 
@@ -410,15 +409,24 @@ spectrum = compute_spectrum(buff)  # same!</pre>
     <button class="gal-filter-btn" onclick="filterGal('brainstorm',this)">Brainstorm</button>
     <button class="gal-filter-btn" onclick="filterGal('hardware',this)">Hardware</button>
   </div>
-  <div class="gal-section-divider">Videos</div>
-  <div class="gal-grid-video" id="video-grid">
-    <div class="gal-card" data-cat="demo" onclick="openLightbox('DIMENSIONERS Live Demo — Swarm Scenario','Demo · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#0D2137"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#7ECFDE" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#7ECFDE"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Demo · Video</div><div class="gal-info-name">MAG-NULL Live Demo — Swarm Scenario</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
-    <div class="gal-card" data-cat="demo" onclick="openLightbox('RF Silence Detection Walkthrough','Demo · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#1a0808"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#FCA5A5" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#FCA5A5"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Demo · Video</div><div class="gal-info-name">RF Silence Detection Walkthrough</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
-    <div class="gal-card" data-cat="build" onclick="openLightbox('Assembly Time-lapse','Build · Video','video','')"><div class="gal-thumb gal-thumb-video" style="background:#0a1f0a"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="19" stroke="#6EE7B7" stroke-width="1.2"/><polygon points="18,14 34,22 18,30" fill="#6EE7B7"/></svg><span class="gal-placeholder-label">Add Video</span></div><div class="gal-play-badge"><svg width="10" height="12" fill="#fff" viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg></div></div><div class="gal-info"><div class="gal-info-cat">Build · Video</div><div class="gal-info-name">Assembly Time-lapse</div><div class="gal-info-date">Replace placeholder with your recording</div></div></div>
+  <!-- HERO VIDEO -->
+  <div class="gal-video-hero" id="video-grid">
+    <div class="gal-hero-inner">
+      <video src="Web simulation.mp4" autoplay muted loop playsinline id="gal-hero-video" onclick="this.paused?this.play():this.pause()"></video>
+      <div class="gal-hero-overlay">
+        <div class="gal-hero-badge">Demo · Video</div>
+        <div class="gal-hero-title">MAG-NULL Live Demo — Swarm Scenario</div>
+        <div class="gal-hero-hint">▶ Click to pause / resume</div>
+      </div>
+    </div>
   </div>
-  <div class="gal-section-divider" style="margin-top:28px">Photos</div>
-  <div class="gal-grid-photo" id="photo-grid">
-    <div class="gal-card" data-cat="hardware" onclick="openLightbox('HackRF One + Antenna Setup','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">HackRF One + Antenna Setup</div></div></div>
+  
+  <!-- PHOTOS -->
+  <div class="gal-section-divider gal-photos-divider" style="margin-top:36px">Photos</div>
+    <div class="gal-grid-photo" id="photo-grid">
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('ESC','Hardware · Photo','photo','ESC.png')"><div class="gal-thumb gal-thumb-photo"><img src="ESC.png" alt="ESC" style="width:100%;height:100%;object-fit:cover;display:block"></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">ESC</div></div></div>
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('FC','Hardware · Photo','photo','FC.png')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label"></span><img src="FC.png" alt=""></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">FC</div></div></div>
+    <div class="gal-card" data-cat="hardware" onclick="openLightbox('RC','Hardware · Photo','photo','RC.png')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label"></span><img src="RC.png" alt=""></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">RC</div></div></div>
     <div class="gal-card" data-cat="hardware" onclick="openLightbox('Raspberry Pi 5 Node — Enclosure','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">Raspberry Pi 5 Node — Enclosure</div></div></div>
     <div class="gal-card" data-cat="hardware" onclick="openLightbox('LNA + SMA Cabling','Hardware · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Hardware</div><div class="gal-info-name">LNA + SMA Cabling</div></div></div>
     <div class="gal-card" data-cat="build" onclick="openLightbox('Soldering &amp; Wiring Session','Build · Photo','photo','')"><div class="gal-thumb gal-thumb-photo"><div class="gal-placeholder"><svg class="gal-placeholder-icon" width="32" height="32" fill="none" stroke="var(--stone2)" stroke-width="1.2" viewBox="0 0 32 32"><rect x="2" y="6" width="28" height="20" rx="2"/><circle cx="16" cy="16" r="5"/></svg><span class="gal-placeholder-label">Add Photo</span></div></div><div class="gal-info"><div class="gal-info-cat">Build</div><div class="gal-info-name">Soldering &amp; Wiring Session</div></div></div>
@@ -431,8 +439,6 @@ spectrum = compute_spectrum(buff)  # same!</pre>
   </div>
   <div class="gal-upload-zone">
     <svg width="24" height="24" fill="none" stroke="var(--stone2)" stroke-width="1.4" viewBox="0 0 24 24"><path d="M12 16V8M8 12l4-4 4 4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-    <p>To add your own media, replace the placeholder <code style="font-family:var(--f-mono);font-size:11px;background:var(--cream);padding:1px 5px;border-radius:4px">&lt;div class="gal-placeholder"&gt;</code> inside each card with your actual content</p>
-    <span>Supports &lt;img src="…"&gt; · &lt;video controls src="…"&gt; · &lt;iframe src="https://youtube.com/embed/ID"&gt;</span>
   </div>
 </div>
 
@@ -449,43 +455,6 @@ spectrum = compute_spectrum(buff)  # same!</pre>
       </div>
       <button class="lb-close-btn" onclick="closeLightbox()">✕ Close</button>
     </div>
-  </div>
-</div>
-
-<!-- ═══ REBUILD PROMPT ═══ -->
-<div id="tab-prompt" class="section-panel">
-  <div class="sec-header">
-    <div class="sec-eyebrow">Copy → Paste → Rebuild</div>
-    <h2 class="sec-title">Master Rebuild Prompt</h2>
-    <p class="sec-desc">Give this single prompt to any AI assistant or developer to rebuild the entire MAG-NULL system from scratch — frontend, backend, server, hardware, and performance requirements all in one block.</p>
-  </div>
-  <div class="prompt-box">
-    <div class="prompt-box-title">MAG-NULL Complete Specification</div>
-    <div class="prompt-box-sub">Everything needed to rebuild the full system from zero</div>
-    <div class="prompt-content" id="prompt-text">
-<span class="ph">Build PROJECT MAG-NULL</span> — a real-time passive RF drone detection and threat intelligence dashboard.
-
-<span class="pc">WHAT IT IS:</span> A passive RF signal intelligence system that detects, classifies, and threat-assesses drones by analyzing their radio frequency transmission patterns. Runs entirely in software — no SDR hardware required for demonstration. Four drone protocols simulated with accurate IQ math: AFHDS (FlySky, hop=20ms, 0.5MHz, GFSK, LOW), ELRS (ExpressLRS, hop=4ms, 0.5MHz, LoRa CSS chirp, MEDIUM), FASST (Futaba, hop=7ms, 1.0MHz, GFSK, MEDIUM), DJI OcuSync 2.0 (hop=10ms, 10MHz, OFDM, HIGH).
-
-<span class="pc">BACKEND</span> — Python 3.10+, stdlib + numpy + scipy only. Zero external packages.
-Five files: main.py starts HTTP on port 8080 + WebSocket on 8765 + pipeline tick loop. pipeline.py is the master 75ms tick loop. simulator.py generates IQ bursts using seeded RNG, hop tables, Gaussian burst shapes, LoRa chirp sweep, OFDM flat spectrum. dsp.py: 512-pt windowed FFT, rolling 12th-percentile noise floor, energy detector at noise+6dB, feature extractor, rule-based classifier, five-factor swarm scorer. ws_server.py: RFC 6455 from scratch — stdlib only.
-
-<span class="pc">SERVER</span> — Pure Python stdlib. Zero external deps.
-WebSocket: SHA1 handshake, text frame encode/decode, multi-client broadcast, dead client cleanup. HTTP: SimpleHTTPRequestHandler + GET /api/scenario/{key} + GET /api/scenarios. Three threads: HTTP main, WebSocket daemon, pipeline daemon. Threading lock on state.
-
-<span class="pc">FRONTEND</span> — Single index.html. No build tools. No npm.
-CSS Grid: 4 rows (64px header, flex main, 140px bottom, 108px swarm) × 2 cols. Fonts: Bebas Neue (impact numbers), Rajdhani (labels), JetBrains Mono (data). Colors: bg0=#04070d, green=#00e5a0, amber=#f5a623, red=#ff3355, blue=#00aaff. Waterfall: 512×160 Canvas, thermal colormap, 140-row history, single putImageData. Threat table: sticky header, animated rows, confidence bars, LOW/MEDIUM/HIGH/SILENT badges. Swarm ring: Canvas arc 0–100, border alarm above 68. RF Silence banner: fixed top-center, appears on rf_silent=true. WebSocket auto-reconnects every 2s.
-
-<span class="pc">FIVE SCENARIOS:</span> idle, hobby (TGT-001 AFHDS seed=42), fpv (TGT-002 ELRS seed=17), dji (TGT-003 DJI seed=99), swarm (TGT-004/005/006/007 mixed — all within 800ms), silent (TGT-009 DJI seed=55 — goes RF silent after 6000ms).
-
-<span class="pc">HARDWARE PATH:</span> Replace simulator with SoapySDR.Device({'driver':'hackrf'}), setSampleRate(0, 20e6), setCenterFreq(0, 2.44e9), readStream to complex64 buffer, pass to same compute_spectrum(). HackRF One ($299) + patch antenna ($18) + Raspberry Pi 5 ($90) = $534/node. Receive-only, fully legal.
-
-<span class="pc">PERFORMANCE:</span> Pipeline must complete in &lt;75ms. Confirmed: 3.17ms/tick = 23× margin. Pre-allocate all NumPy buffers. Waterfall capped at 140 rows. Hop history capped at 32 entries.
-    </div>
-    <button class="copy-btn" onclick="copyPrompt()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><path d="M11 5h1a1 1 0 011 1v6a1 1 0 01-1 1H6a1 1 0 01-1-1v-1"/></svg>
-      Copy Prompt
-    </button>
   </div>
 </div>
 
