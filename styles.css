@@ -679,3 +679,40 @@ pre.code-block{
   #theme-toggle{top:12px;right:12px;padding:6px 10px 6px 8px}
   .toggle-label{display:none}
 }
+
+/* ── Standalone Gallery Section ── */
+.gallery-standalone {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 80px 32px 60px;
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.gallery-standalone.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── MAG-NULL Text Pressure ── */
+@font-face {
+  font-family: 'Compressa VF';
+  src: url('https://res.cloudinary.com/dr6lvwubh/raw/upload/v1529908256/CompressaPRO-GX.woff2');
+}
+#mag-null-pressure h1 {
+  font-family: 'Compressa VF', sans-serif;
+  text-transform: uppercase;
+  font-weight: 100;
+  white-space: nowrap;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  user-select: none;
+  line-height: 1;
+  font-size: 82px;
+}
+#mag-null-pressure h1 span {
+  display: inline-block;
+}

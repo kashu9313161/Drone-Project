@@ -378,4 +378,93 @@ document.addEventListener('DOMContentLoaded', renderPipeline);
     step(dt);render();requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// GALLERY SCROLL-IN ANIMATION
+// ══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function () {
+  const gallery = document.getElementById('gallery');
+  if (!gallery) return;
+
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        gallery.classList.add('in-view');
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.05 });
+
+  observer.observe(gallery);
+});
+
+// ══════════════════════════════════════════════════════════════════
+// MAG-NULL TEXT PRESSURE EFFECT
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const container = document.getElementById('mag-null-pressure');
+  if (!container) return;
+
+  // Each letter gets its own gradient color (teal → purple → pink like the screenshot)
+  const letterColors = [
+    '#7ECFDE', // M - teal
+    '#6EC6E8', // A - light blue
+    '#A78BFA', // G - purple
+    '#ffffff', // - (dash) - white
+    '#C084FC', // N - violet
+    '#E879A0', // U - pink-purple
+    '#F472B6', // L - pink
+    '#7ECFDE', // L - teal
+  ];
+
+  const text = 'MAG-NULL';
+  const h1 = document.createElement('h1');
+
+  text.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.dataset.char = ch;
+    span.style.color = letterColors[i] || '#ffffff';
+    // Start thick
+    span.style.fontVariationSettings = "'wght' 750, 'wdth' 140, 'ital' 0";
+    h1.appendChild(span);
+  });
+
+  container.appendChild(h1);
+
+  const spanEls = Array.from(h1.querySelectorAll('span'));
+  const mouse = { x: 0, y: 0 };
+  const cursor = { x: 0, y: 0 };
+
+  const r = container.getBoundingClientRect();
+  mouse.x = cursor.x = r.left + r.width / 2;
+  mouse.y = cursor.y = r.top + r.height / 2;
+
+  window.addEventListener('mousemove', e => { cursor.x = e.clientX; cursor.y = e.clientY; });
+  window.addEventListener('touchmove', e => { cursor.x = e.touches[0].clientX; cursor.y = e.touches[0].clientY; }, { passive: true });
+
+  function dist(a, b) { return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2); }
+  function getAttr(d, maxD, minV, maxV) { return Math.max(minV, (maxV - Math.abs(maxV * d / maxD)) + minV); }
+
+  function animate() {
+    mouse.x += (cursor.x - mouse.x) / 15;
+    mouse.y += (cursor.y - mouse.y) / 15;
+
+    const maxDist = h1.getBoundingClientRect().width / 2;
+
+    spanEls.forEach(span => {
+      const sr = span.getBoundingClientRect();
+      const d = dist(mouse, { x: sr.x + sr.width / 2, y: sr.y + sr.height / 2 });
+      const wght = Math.floor(getAttr(d, maxDist, 200, 900));
+      const wdth = Math.floor(getAttr(d, maxDist, 60, 200));
+      const ital = getAttr(d, maxDist, 0, 1).toFixed(2);
+      span.style.fontVariationSettings = `'wght' ${wght}, 'wdth' ${wdth}, 'ital' ${ital}`;
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
 })();
