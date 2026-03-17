@@ -695,10 +695,15 @@ pre.code-block{
   transform: translateY(0);
 }
 
-/* ── MAG-NULL Text Pressure ── */
+/* ── TextPressure: MAG-NULL ── */
 @font-face {
   font-family: 'Compressa VF';
   src: url('https://res.cloudinary.com/dr6lvwubh/raw/upload/v1529908256/CompressaPRO-GX.woff2');
+  font-style: normal;
+}
+#mag-null-pressure {
+  display: flex;
+  align-items: center;
 }
 #mag-null-pressure h1 {
   font-family: 'Compressa VF', sans-serif;
@@ -711,8 +716,10 @@ pre.code-block{
   justify-content: space-between;
   user-select: none;
   line-height: 1;
-  font-size: 82px;
+  font-size: 80px;
 }
 #mag-null-pressure h1 span {
   display: inline-block;
+  color: #ffffff;
+  transition: font-variation-settings 0.05s ease;
 }

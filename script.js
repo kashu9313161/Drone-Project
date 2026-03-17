@@ -1,7 +1,9 @@
+
 // ══════════════════════════════════════════════════════════════════
 // DARK / LIGHT MODE TOGGLE
 // ══════════════════════════════════════════════════════════════════
-(function () {
+(function() {
+  // Default to dark on first load, respect stored preference after
   const stored = localStorage.getItem('mag-null-theme');
   const theme = stored || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
@@ -17,10 +19,230 @@ function toggleTheme() {
   const html = document.documentElement;
   const current = html.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
-  html.setAttribute('data-theme', next);
-  localStorage.setItem('mag-null-theme', next);
-  updateToggleLabel(next);
+
+  // Ripple animation
+  const ripple = document.getElementById('toggle-ripple');
+  ripple.classList.remove('active');
+  void ripple.offsetWidth; // reflow to restart
+  ripple.classList.add('active');
+
+  // Apply theme with a brief flash transition
+  html.style.transition = 'none';
+  requestAnimationFrame(() => {
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('mag-null-theme', next);
+    updateToggleLabel(next);
+  });
 }
+
+// ── Tab Switching ──────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  window.scrollTo({top: document.getElementById('nav').offsetTop, behavior:'smooth'});
+}
+
+// ── Pipeline Data ──────────────────────────────────────────────────
+const STAGES = [
+  {num:'01',name:'SDR Scan / Simulator',tagline:'Raw IQ sample capture',title:'Stage 1: IQ Signal Acquisition',sub:'The starting point — raw complex samples from hardware or simulation.',body:`<p>In simulation mode, the signal simulator generates mathematically accurate IQ (in-phase/quadrature) sample streams for each drone protocol. In hardware mode, a HackRF One SDR captures real signals at 20 million samples per second via USB 2.0.</p><p>IQ samples are complex64 numbers — each has a real component (I) and an imaginary component (Q). Together they encode both the amplitude and phase of the radio signal at each instant in time.</p><p>The simulator builds each protocol's signal from first principles — a seeded linear congruential RNG generates the hop table, Gaussian window shapes the burst envelope, and protocol-specific features (LoRa chirp sweep for ELRS, flat OFDM for DJI) are added mathematically.</p>`,code:`# Hardware mode — one change from simulation
+sdr = SoapySDR.Device({'driver': 'hackrf'})
+sdr.setSampleRate(SOAPY_SDR_RX, 0, 20e6)
+sdr.setCenterFreq(SOAPY_SDR_RX, 0, 2.44e9)
+buff = np.zeros(512, dtype=np.complex64)
+sdr.readStream(rx_stream, [buff], 512)`,tags:[{t:'20 MSPS',c:'blue'},{t:'complex64',c:'blue'},{t:'2.4 GHz ISM',c:'blue'}]},
+  {num:'02',name:'FFT Engine',tagline:'Time → frequency domain',title:'Stage 2: 512-Point Windowed FFT',sub:'Converts the raw sample stream into a power spectrum — the frequency "fingerprint."',body:`<p>A 512-point Fast Fourier Transform (FFT) converts the time-domain IQ buffer into a frequency-domain power spectrum. The output is 512 power values in dBm, each representing the signal strength in a 156.25 kHz wide frequency bin.</p><p>A Hanning window is applied before the FFT to reduce spectral leakage — without it, strong signals would "bleed" into neighboring bins and mask weaker signals. The window is pre-computed once at startup and reused every tick.</p><p>The full 80 MHz band (2400–2480 MHz) is covered in a single FFT call. Time per call on laptop hardware: approximately 0.008ms — over 9,000 times faster than the available 75ms budget.</p>`,code:`def compute_spectrum(iq_buffer):
+    windowed = iq_buffer[:512] * np.hanning(512)
+    fft_out  = np.fft.fft(windowed, n=512)
+    power    = np.abs(fft_out) ** 2
+    return 10 * np.log10(power + 1e-12)  # dBm`,tags:[{t:'0.008ms',c:'green'},{t:'156 kHz/bin',c:'blue'},{t:'Hanning window',c:'blue'}]},
+  {num:'03',name:'Noise Floor Estimator',tagline:'Dynamic rolling baseline',title:'Stage 3: Adaptive Noise Floor',sub:'Separates real signals from background noise dynamically — no fixed threshold.',body:`<p>A fixed noise threshold would fail as temperature, interference, and environment change. DIMENSIONERS uses a rolling adaptive estimator: it stores the last 30 spectra and computes the 12th percentile value per bin.</p><p>The 12th percentile means: "in 88% of recent scans, this bin was at or above this level." This captures the true noise floor per bin rather than a global average — important because the 2.4 GHz ISM band has uneven interference from Wi-Fi, Bluetooth, and microwave ovens.</p><p>The result is a 512-element noise floor array that updates every tick and adapts automatically to the RF environment — whether tested in an anechoic chamber or a crowded city center.</p>`,code:`class NoiseFloorEstimator:
+    def update(self, spectrum):
+        self.history.append(spectrum)
+        if len(self.history) > 30:
+            self.history.pop(0)
+        if len(self.history) >= 5:
+            self.floor = np.percentile(
+                np.array(self.history), 12, axis=0)
+        return self.floor`,tags:[{t:'12th percentile',c:'blue'},{t:'Per-bin adaptive',c:'green'},{t:'30-frame window',c:'blue'}]},
+  {num:'04',name:'Energy Detector',tagline:'Find bins above threshold',title:'Stage 4: Burst Detection',sub:'Identifies frequency clusters where a drone is actively transmitting.',body:`<p>The energy detector compares each bin in the current spectrum against its corresponding noise floor value. Any bin exceeding noise_floor + 6 dB is flagged as "above threshold."</p><p>The 6 dB threshold provides a 4× power margin — strong enough to reject noise spikes while sensitive enough to catch low-power frequency-hopping bursts. Adjacent flagged bins (within 3 bins of each other) are merged into a single "cluster" representing one transmission burst.</p><p>Each cluster has a center bin, a width in bins, and a peak power in dBm. These clusters are passed to the feature extractor to measure hop timing and bandwidth.</p>`,code:`def detect_clusters(spectrum, noise_floor, threshold_db=6.0):
+    above = spectrum > (noise_floor + threshold_db)
+    clusters = []
+    in_cl, start = False, 0
+    for i in range(512):
+        if above[i] and not in_cl:
+            start, in_cl = i, True
+        elif not above[i] and in_cl:
+            if i - start >= 2:
+                clusters.append((start, i - 1))
+            in_cl = False
+    return clusters`,tags:[{t:'+6 dB threshold',c:'amber'},{t:'Cluster merge',c:'blue'},{t:'0.05ms',c:'green'}]},
+  {num:'05',name:'Feature Extractor',tagline:'Measure hop interval & bandwidth',title:'Stage 5: Feature Extraction',sub:'Converts raw burst measurements into the features that identify drone protocols.',body:`<p>Three features are extracted per tracked contact: hop interval (how often the drone changes frequency), bandwidth (how wide each burst is in kHz), and modulation type (chirp pattern for LoRa CSS, flat wide spectrum for OFDM).</p><p>Hop interval is measured by recording timestamps when each contact appears in a new frequency bin and computing the median interval across the last 32 observations. Median is used instead of mean to resist outliers from missed detections.</p><p>Chirp detection works by checking if the instantaneous frequency increases linearly across the burst — a Pearson correlation above 0.85 flags it as LoRa CSS. OFDM detection checks if bandwidth exceeds 5 MHz.</p>`,code:`def extract_features(hop_history, timestamps, bw_bins):
+    intervals = np.diff(timestamps)
+    hop_ms    = float(np.median(intervals))
+    bw_khz    = float(np.median(bw_bins)) * (80/512) * 1000
+    return dict(hop_ms=hop_ms, bw_khz=bw_khz)
+
+# Chirp detection
+corr = np.corrcoef(range(N), inst_freq)[0,1]
+is_chirp = corr > 0.85`,tags:[{t:'Median hop interval',c:'blue'},{t:'Chirp correlation',c:'amber'},{t:'OFDM BW check',c:'red'}]},
+  {num:'06',name:'Protocol Classifier',tagline:'Match to known signatures',title:'Stage 6: Protocol Classification',sub:'Identifies the exact drone protocol from its RF fingerprint.',body:`<p>The rule-based classifier matches extracted features against the four known protocol signatures. Decision priority runs from most-distinctive (OFDM bandwidth is unmistakable for DJI) to least-distinctive (hop interval ranges for AFHDS and FASST overlap slightly).</p><p>Confidence builds over time — early ticks have low confidence (0.04 + hops × 0.055) because few hops have been observed. By 15–20 hops the confidence converges to the protocol-specific ceiling (96% for DJI, 88% for AFHDS).</p><p>The ML upgrade path replaces this with a MobileNetV2 CNN trained on spectrogram images — same inputs, probabilistic outputs. The simulator generates perfectly labeled training data automatically.</p>`,code:`def classify_protocol(hop_ms, bw_khz, chirp, ofdm):
+    if ofdm and bw_khz > 5000:
+        return "DJI",   0.96
+    if chirp:
+        return "ELRS",  0.93
+    if 18 <= hop_ms <= 22 and bw_khz < 700:
+        return "AFHDS", 0.88
+    if  5 <= hop_ms <=  9 and bw_khz < 1400:
+        return "FASST", 0.83
+    return "UNKNOWN", 0.40`,tags:[{t:'96% DJI',c:'red'},{t:'93% ELRS',c:'amber'},{t:'88% AFHDS',c:'green'},{t:'83% FASST',c:'amber'}]},
+  {num:'07',name:'Threat Assessor',tagline:'LOW / MEDIUM / HIGH scoring',title:'Stage 7: Threat Assessment',sub:'Translates protocol classification into actionable threat levels.',body:`<p>Threat level is determined per contact based on protocol — AFHDS (hobby remote controls) = LOW, ELRS and FASST (FPV/racing drones) = MEDIUM, DJI OcuSync (commercial platforms capable of carrying payloads) = HIGH.</p><p>The global threat level aggregates across all active contacts: any HIGH contact triggers CRITICAL, any MEDIUM contact triggers WARNING, RF silence on any contact triggers TERMINAL. The TERMINAL state is the most dangerous — it means a drone has locked onto a target and severed all radio links.</p><p>Threat levels drive the dashboard visuals: green for LOW, amber for MEDIUM, red for HIGH, pulsing red for TERMINAL. The header STATUS badge updates instantly on every tick.</p>`,code:`# Global threat calculation
+if any(c['rf_silent'] for c in contacts):
+    return "TERMINAL"
+elif any(c['tl'] >= 3 for c in contacts):
+    return "CRITICAL"
+elif any(c['tl'] >= 2 for c in contacts):
+    return "WARNING"
+elif contacts:
+    return "ACTIVE"
+else:
+    return "CLEAR"`,tags:[{t:'CLEAR',c:'green'},{t:'WARNING',c:'amber'},{t:'CRITICAL',c:'red'},{t:'TERMINAL',c:'red'}]},
+  {num:'08',name:'RF Silence Watchdog',tagline:'2.5s timeout → verdict',title:'Stage 8: RF Silence Detection',sub:'The most critical stage — detects terminal guidance mode.',body:`<p>Every tracked contact has a last_seen timestamp. If 2,500ms passes with no new transmission detected, the watchdog fires and evaluates why using linear regression on the RSSI history.</p><p>A positive slope (signal was growing stronger — drone was approaching) combined with sudden silence = TERMINAL_GUIDANCE. This is the kill phase. The drone has locked its onboard camera onto the target and no longer needs the operator's radio link.</p><p>A negative slope (signal was fading — drone was moving away) = OUT_OF_RANGE. No threat. The watchdog triggers the global RF SILENCE banner, changes the contact status to RF SILENT, and lights up Pipeline Stage 7 on the dashboard.</p>`,code:`def check_silence(self, current_time_ms):
+    for cid, data in self.contacts.items():
+        if current_time_ms - data['last_seen'] > 2500:
+            if not data['rf_silent']:
+                data['rf_silent'] = True
+                h = data['rssi_history']
+                slope = np.polyfit(range(len(h)), h, 1)[0]
+                if slope > 0.3:
+                    verdict = "TERMINAL_GUIDANCE"
+                else:
+                    verdict = "OUT_OF_RANGE"`,tags:[{t:'2500ms timeout',c:'amber'},{t:'RSSI slope',c:'blue'},{t:'Linear regression',c:'blue'}]},
+  {num:'09',name:'Swarm Analyzer',tagline:'Five-factor 0–100 score',title:'Stage 9: Swarm Behavior Analysis',sub:'Detects coordinated multi-drone attacks that rule-based systems miss.',body:`<p>The swarm analyzer scores five independent behavioral signals: how many contacts are active (up to 25 pts), how many different protocols are in use — a sophisticated attacker uses diverse hardware to defeat single-protocol detection (25 pts), how tightly clustered the drone appearances are in time (25 pts), what mix of threat levels is present (15 pts), and how many drones appeared within an 800ms simultaneous-entry window (10 pts).</p><p>Four hobbyists coincidentally flying in the same area would score ~25 — all the same protocol, spread arrival times. Four coordinated drones with mixed protocols arriving within 800ms scores 82–95 = ORGANIZED INTRUSION. The difference is statistically unambiguous.</p>`,code:`def compute_swarm(contacts):
+    N = len(contacts)
+    count_s = min(25.0, N * 6.25)
+    div_s   = min(25.0, (len(set(c.proto for c in contacts)) / 4) * 25)
+    spread  = max(c.first_seen for c in contacts) - min(...)
+    temp_s  = min(25.0, 25.0 * (1 - spread / 4000)) if N >= 2 else 0
+    avg_tl  = sum(c.tl for c in contacts) / N
+    thr_s   = min(15.0, ((avg_tl - 1) / 2) * 15)
+    simul_s = min(10.0, simultaneous_count * 5)
+    return count_s + div_s + temp_s + thr_s + simul_s`,tags:[{t:'5 factors',c:'blue'},{t:'0–100 score',c:'amber'},{t:'800ms window',c:'red'}]},
+  {num:'10',name:'WebSocket Server',tagline:'75ms broadcast loop',title:'Stage 10: Real-Time Data Delivery',sub:'Pure Python RFC 6455 WebSocket — zero external dependencies.',body:`<p>The WebSocket server broadcasts the full pipeline state to every connected browser every 75ms (13 Hz). It is implemented from scratch using only Python stdlib — socket, threading, hashlib, base64, struct — so it works on any machine with Python installed, no pip install required.</p><p>The handshake is standard RFC 6455: extract Sec-WebSocket-Key, compute SHA1(key + MAGIC_STRING), base64 encode, return HTTP 101. Frame encoding prepends FIN+opcode byte and length byte to the JSON payload. Dead clients are detected on send failure and removed from the broadcast set.</p><p>The entire JSON state dict (spectrum[512], contacts[], swarm scores, alerts) is serialized and broadcast in under 0.5ms. Multiple browser tabs all receive the same data simultaneously.</p>`,code:`def ws_send(conn, message):
+    data   = message.encode('utf-8')
+    header = bytearray([0x81])  # FIN + text
+    if len(data) <= 125:
+        header.append(len(data))
+    elif len(data) <= 65535:
+        header.append(126)
+        header += struct.pack('>H', len(data))
+    conn.sendall(bytes(header) + data)`,tags:[{t:'RFC 6455',c:'blue'},{t:'0 dependencies',c:'green'},{t:'<0.5ms broadcast',c:'green'}]},
+  {num:'11',name:'Dashboard Frontend',tagline:'Single HTML file, live render',title:'Stage 11: Live Dashboard',sub:'Everything rendered in the browser from the WebSocket stream.',body:`<p>The frontend receives each tick's JSON state and renders six visual elements simultaneously: the spectrogram waterfall (canvas, thermal colormap, 140-row history), spectrum bar chart (48 bars), threat contact table (animated rows, confidence bars), hop pattern timeline (scatter canvas per selected contact), swarm score ring (canvas arc with factor bars), and detection pipeline status (7 stage indicators).</p><p>The waterfall uses a single ImageData.putImageData() call per render — building the entire 512×160 pixel image in JavaScript then committing it to canvas in one GPU-accelerated call. This is 40× faster than per-pixel setPixel calls and allows smooth 13 Hz rendering without dropped frames.</p><p>WebSocket auto-reconnects every 2 seconds if the backend stops — enabling live reload during development without refreshing the browser.</p>`,code:`function handleState(state) {
+  wfHistory.push(state.wf_row);
+  if (wfHistory.length > 140) wfHistory.shift();
+  drawWF();           // single putImageData call
+  drawBars(state.spectrum);
+  drawMarkers(state.contacts);
+  renderTable(state.contacts);
+  updateSwarm(state.swarm);
+  updatePipe(state.pipe_flags);
+  updateHeader(state);
+}`,tags:[{t:'13 Hz render',c:'green'},{t:'Single putImageData',c:'blue'},{t:'Auto-reconnect',c:'blue'}]}
+];
+
+function renderPipeline() {
+  const container = document.getElementById('pipeline-steps');
+  container.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    if (i > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'step-connector';
+      container.appendChild(conn);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'step-btn';
+    btn.dataset.idx = i;
+    btn.innerHTML = `<div class="step-num">${s.num}</div><div class="step-info"><div class="step-name">${s.name}</div><div class="step-tagline">${s.tagline}</div></div>`;
+    btn.onclick = () => showStage(i);
+    container.appendChild(btn);
+  });
+}
+
+function showStage(idx) {
+  document.querySelectorAll('.step-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
+  const s = STAGES[idx];
+  const pane = document.getElementById('step-detail');
+  const tagsHTML = s.tags.map(t => `<span class="tag ${t.c}">${t.t}</span>`).join('');
+  pane.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-num">STAGE ${s.num}</div>
+      <div class="detail-title">${s.title}</div>
+      <div class="detail-sub">${s.sub}</div>
+    </div>
+    <div class="detail-body">${s.body}</div>
+    <pre class="code-block">${s.code}</pre>
+    <div style="margin-top:12px">${tagsHTML}</div>
+  `;
+}
+
+renderPipeline();
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const t = document.getElementById('copy-toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  });
+}
+
+function filterGal(cat, btn) {
+  document.querySelectorAll('#gal-filters .gal-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.gal-card').forEach(card => {
+    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+  });
+}
+
+function openLightbox(title, cat, type, src) {
+  document.getElementById('lb-title').textContent = title;
+  document.getElementById('lb-cat').textContent = cat;
+  const media = document.getElementById('lb-media');
+  if (src) {
+    if (type === 'video') media.innerHTML = `<video controls src="${src}" style="width:100%;height:100%;object-fit:contain"></video>`;
+    else if (type === 'youtube') media.innerHTML = `<iframe src="${src}" style="width:100%;height:100%;border:none" allowfullscreen></iframe>`;
+    else media.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:contain">`;
+  } else {
+    media.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%"><svg width="56" height="56" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1.2" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24"/><polygon points="22,18 42,28 22,38" fill="rgba(255,255,255,.25)"/></svg><span style="font-family:var(--f-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.3)">NO MEDIA ATTACHED</span></div>`;
+  }
+  document.getElementById('gal-lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('gal-lightbox').classList.remove('open');
+  document.getElementById('lb-media').innerHTML = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// Scroll reveal
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, {threshold: 0.1});
+
+document.querySelectorAll('.card, .proto-card, .ref-card, .gal-card').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(16px)';
+  el.style.transition = 'opacity .4s ease, transform .4s ease';
+  observer.observe(el);
+});
+
 
 // ══════════════════════════════════════════════════════════════════
 // HERO TYPEWRITER
@@ -116,270 +338,6 @@ function toggleTheme() {
   });
 })();
 
-// ══════════════════════════════════════════════════════════════════
-// TAB NAVIGATION
-// ══════════════════════════════════════════════════════════════════
-function switchTab(id, btn) {
-  document.querySelectorAll('.section-panel').forEach(p => p.style.display = 'none');
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const panel = document.getElementById('tab-' + id);
-  if (panel) { panel.style.display = 'block'; panel.style.animation = 'fadeUp .4s ease'; }
-  if (btn) btn.classList.add('active');
-}
-
-// ══════════════════════════════════════════════════════════════════
-// PIPELINE
-// ══════════════════════════════════════════════════════════════════
-const STAGES = [
-  { num:'01', title:'SDR Capture', sub:'HackRF One ingestion', icon:'📡', detail:'Raw IQ samples captured at 20 MSPS via HackRF One. The simulator mirrors this exactly — same buffer sizes, same sample rates, ready for hardware swap with one config change.' },
-  { num:'02', title:'Decimation', sub:'Sample rate reduction', icon:'⬇', detail:'Downsample by factor 8 using polyphase filterbank. Reduces compute load from 20 MSPS to 2.5 MSPS while preserving all signal content above 1.25 MHz.' },
-  { num:'03', title:'FFT Engine', sub:'Spectral analysis', icon:'📊', detail:'512-point FFT computed every 13 Hz tick. Hann window applied before transform to reduce spectral leakage. Output: 512 frequency bins covering 0–2.5 MHz.' },
-  { num:'04', title:'Noise Floor', sub:'Adaptive baseline', icon:'📉', detail:'Rolling median across 64 frames establishes adaptive noise floor. Each bin tracked independently. Threshold = noise_floor + 12 dB SNR margin.' },
-  { num:'05', title:'Peak Detect', sub:'Signal identification', icon:'🔍', detail:'CFAR detector identifies peaks exceeding adaptive threshold. Minimum peak separation enforced at 50 kHz to prevent single signal splitting into multiple candidates.' },
-  { num:'06', title:'Hop Tracker', sub:'Frequency hopping', icon:'🔀', detail:'Cross-frame correlation links peaks into hopping sequences. Kalman filter predicts next hop position. Sequences with < 4 hops discarded as noise.' },
-  { num:'07', title:'Protocol Match', sub:'Drone classification', icon:'🎯', detail:'Matched filter bank compares hop sequences against 4 known drone protocols: DJI OcuSync, FrSky FHSS, Spektrum DSM2, FlySky AFHDS. Confidence score per protocol.' },
-  { num:'08', title:'RF Silence', sub:'Threat detection', icon:'🔴', detail:'If a tracked drone signal disappears for > 300 ms while heading vector indicates approach, RF Silence alert triggers. This is the MAG-NULL unique detection window.' },
-  { num:'09', title:'Threat Score', sub:'Risk assessment', icon:'⚠', detail:'Composite score: signal strength (30%) + hop regularity (25%) + protocol confidence (25%) + silence flag (20%). Score > 0.7 triggers HIGH alert.' },
-  { num:'10', title:'WebSocket TX', sub:'Real-time streaming', icon:'🌐', detail:'JSON frames pushed to frontend every 77 ms (13 Hz). Format: {tick, drones[], alerts[], spectrum[]}. RFC 6455 compliant, no framework dependency.' },
-  { num:'11', title:'Dashboard', sub:'Live visualization', icon:'🖥', detail:'Pure HTML/CSS/JS frontend. Radar sweep, live spectrum plot, drone track table, and alert log. Opens in any browser. Connects to backend automatically on localhost:8765.' }
-];
-
-function renderPipeline() {
-  const container = document.getElementById('pipeline-steps');
-  if (!container) return;
-  container.innerHTML = STAGES.map((s, i) => `
-    <button class="step-btn ${i===0?'active':''}" onclick="showStage(${i})">
-      <span class="step-num">${s.num}</span>
-      <span class="step-info"><span class="step-title">${s.title}</span><span class="step-sub">${s.sub}</span></span>
-    </button>`).join('');
-  showStage(0);
-}
-
-function showStage(idx) {
-  const s = STAGES[idx];
-  document.querySelectorAll('.step-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
-  const d = document.getElementById('stage-detail');
-  if (d) d.innerHTML = `<div class="stage-icon">${s.icon}</div><div class="stage-num-label">Stage ${s.num}</div><h3 class="stage-title-big">${s.title}</h3><p class="stage-sub-big">${s.sub}</p><p class="stage-body">${s.detail}</p>`;
-}
-
-// ══════════════════════════════════════════════════════════════════
-// GALLERY FILTER
-// ══════════════════════════════════════════════════════════════════
-function filterGal(cat, btn) {
-  document.querySelectorAll('.gal-filter-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  document.querySelectorAll('.gal-card').forEach(card => {
-    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
-  });
-}
-
-// ══════════════════════════════════════════════════════════════════
-// LIGHTBOX
-// ══════════════════════════════════════════════════════════════════
-function openLightbox(title, cat, type, src) {
-  document.getElementById('lb-title').textContent = title;
-  document.getElementById('lb-cat').textContent = cat;
-  const media = document.getElementById('lb-media');
-
-  if (type === 'model3d' && src) {
-    const views = JSON.parse(src);
-    let current = 0;
-    function render3d() {
-      media.innerHTML = `
-        <div style="width:100%;height:100%;display:flex;flex-direction:column;background:#080f1a;position:relative;user-select:none;">
-          <div id="lb3d-stage" style="flex:1;position:relative;overflow:hidden;cursor:grab;display:flex;align-items:center;justify-content:center;">
-            <img src="${views[current].file}" alt="${views[current].label}" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">
-            <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-family:var(--f-mono);font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.3);pointer-events:none;">← DRAG TO CYCLE VIEWS →</div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;background:rgba(0,0,0,.5);border-top:1px solid rgba(255,255,255,.06);">
-            ${views.map((v, i) => `<button onclick="lb3dSwitch(${i})" style="font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px;padding:5px 14px;border-radius:4px;border:1px solid ${i===current?'var(--teal)':'rgba(255,255,255,.12)'};background:${i===current?'rgba(126,207,222,.12)':'transparent'};color:${i===current?'var(--teal)':'rgba(255,255,255,.4)'};cursor:pointer;">${v.label}</button>`).join('')}
-          </div>
-        </div>`;
-      const stage = document.getElementById('lb3d-stage');
-      let startX = null;
-      stage.onmousedown = e => { startX = e.clientX; stage.style.cursor = 'grabbing'; };
-      stage.onmousemove = e => {
-        if (startX === null) return;
-        if (Math.abs(e.clientX - startX) > 40) {
-          const dir = e.clientX < startX ? 1 : -1; startX = null; stage.style.cursor = 'grab';
-          current = (current + dir + views.length) % views.length; render3d();
-        }
-      };
-      stage.onmouseup = stage.onmouseleave = () => { startX = null; stage.style.cursor = 'grab'; };
-    }
-    window.lb3dSwitch = i => { current = i; render3d(); };
-    render3d();
-  } else if (src) {
-    if (type === 'video') media.innerHTML = `<video controls autoplay src="${src}" style="max-width:100%;max-height:75vh;display:block;margin:auto;"></video>`;
-    else if (type === 'youtube') media.innerHTML = `<iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:none;" allowfullscreen></iframe>`;
-    else media.innerHTML = `<img src="${src}" style="max-width:100%;max-height:75vh;width:auto;height:auto;object-fit:contain;display:block;margin:auto;">`;
-  } else {
-    media.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%"><svg width="56" height="56" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1.2" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24"/><polygon points="22,18 42,28 22,38" fill="rgba(255,255,255,.25)"/></svg><span style="font-family:var(--f-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.3)">NO MEDIA ATTACHED</span></div>`;
-  }
-  document.getElementById('gal-lightbox').classList.add('open');
-}
-
-function closeLightbox() {
-  document.getElementById('gal-lightbox').classList.remove('open');
-  document.getElementById('lb-media').innerHTML = '';
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
-
-// ══════════════════════════════════════════════════════════════════
-// COPY PROMPT
-// ══════════════════════════════════════════════════════════════════
-function copyPrompt() {
-  const el = document.getElementById('rebuild-prompt-text');
-  if (!el) return;
-  navigator.clipboard.writeText(el.innerText).then(() => {
-    const btn = document.querySelector('.copy-btn');
-    if (btn) { const o = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = o, 2000); }
-  });
-}
-
-// ══════════════════════════════════════════════════════════════════
-// SCROLL REVEAL
-// ══════════════════════════════════════════════════════════════════
-const revealObs = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.style.opacity = '1'; e.target.style.transform = 'translateY(0)'; } });
-}, { threshold: 0.1 });
-
-document.querySelectorAll('.card, .proto-card, .ref-card, .gal-card').forEach(el => {
-  el.style.opacity = '0'; el.style.transform = 'translateY(16px)'; el.style.transition = 'opacity .4s ease, transform .4s ease';
-  revealObs.observe(el);
-});
-
-document.addEventListener('DOMContentLoaded', renderPipeline);
-
-// ══════════════════════════════════════════════════════════════════
-// SPLASH CURSOR — WebGL fluid simulation
-// ══════════════════════════════════════════════════════════════════
-(function () {
-  const canvas = document.getElementById('fluid');
-  if (!canvas) return;
-
-  const SIM_RES = 128, DYE_RES = 1440, DENSITY_DISS = 3.5, VEL_DISS = 2;
-  const PRESSURE = 0.1, PRESSURE_ITER = 20, CURL = 3;
-  const SPLAT_RADIUS = 0.2, SPLAT_FORCE = 6000, COLOR_SPEED = 10;
-
-  function Ptr() { this.texcoordX=0;this.texcoordY=0;this.prevTexcoordX=0;this.prevTexcoordY=0;this.deltaX=0;this.deltaY=0;this.moved=false;this.color={r:0,g:0,b:0}; }
-  const ptrs = [new Ptr()];
-
-  const params = {alpha:true,depth:false,stencil:false,antialias:false,preserveDrawingBuffer:false};
-  let gl = canvas.getContext('webgl2', params);
-  const isGL2 = !!gl;
-  if (!isGL2) gl = canvas.getContext('webgl', params) || canvas.getContext('experimental-webgl', params);
-  if (!gl) return;
-
-  let halfFloat, supLinear;
-  if (isGL2) { gl.getExtension('EXT_color_buffer_float'); supLinear = gl.getExtension('OES_texture_float_linear'); }
-  else { halfFloat = gl.getExtension('OES_texture_half_float'); supLinear = gl.getExtension('OES_texture_half_float_linear'); }
-  gl.clearColor(0,0,0,1);
-  const HFT = isGL2 ? gl.HALF_FLOAT : (halfFloat && halfFloat.HALF_FLOAT_OES);
-
-  function testFmt(iF,f,t){const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,iF,4,4,0,f,t,null);const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tx,0);return gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE;}
-  function getFmt(iF,f,t){if(testFmt(iF,f,t))return{internalFormat:iF,format:f};if(iF===gl.R16F)return getFmt(gl.RG16F,gl.RG,t);if(iF===gl.RG16F)return getFmt(gl.RGBA16F,gl.RGBA,t);return null;}
-
-  let fRGBA,fRG,fR;
-  if(isGL2){fRGBA=getFmt(gl.RGBA16F,gl.RGBA,HFT);fRG=getFmt(gl.RG16F,gl.RG,HFT);fR=getFmt(gl.R16F,gl.RED,HFT);}
-  else{fRGBA=fRG=fR=getFmt(gl.RGBA,gl.RGBA,HFT);}
-  if(!fRGBA||!fRG||!fR)return;
-
-  function cs(type,src,kw){if(kw)src=kw.map(k=>'#define '+k+'\n').join('')+src;const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
-  function mkProg(vs,fs){const p=gl.createProgram();gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);return p;}
-  function getU(p){const u={},n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);for(let i=0;i<n;i++){const nm=gl.getActiveUniform(p,i).name;u[nm]=gl.getUniformLocation(p,nm);}return u;}
-  class Prog{constructor(vs,fs){this.p=mkProg(vs,fs);this.u=getU(this.p);}bind(){gl.useProgram(this.p);}}
-  class Mat{constructor(vs,fsSrc){this.vs=vs;this.fsSrc=fsSrc;this.progs={};this.active=null;this.u={};}setKw(kw){let h=0;kw.forEach(k=>{for(let i=0;i<k.length;i++){h=(h<<5)-h+k.charCodeAt(i);h|=0;}});if(!this.progs[h])this.progs[h]=mkProg(this.vs,cs(gl.FRAGMENT_SHADER,this.fsSrc,kw));if(this.progs[h]===this.active)return;this.u=getU(this.progs[h]);this.active=this.progs[h];}bind(){gl.useProgram(this.active);}}
-
-  const bVS=cs(gl.VERTEX_SHADER,`precision highp float;attribute vec2 aPosition;varying vec2 vUv,vL,vR,vT,vB;uniform vec2 texelSize;void main(){vUv=aPosition*.5+.5;vL=vUv-vec2(texelSize.x,0.);vR=vUv+vec2(texelSize.x,0.);vT=vUv+vec2(0.,texelSize.y);vB=vUv-vec2(0.,texelSize.y);gl_Position=vec4(aPosition,0.,1.);}`);
-  const copyFS =cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv;uniform sampler2D uTexture;void main(){gl_FragColor=texture2D(uTexture,vUv);}`);
-  const clearFS=cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv;uniform sampler2D uTexture;uniform float value;void main(){gl_FragColor=value*texture2D(uTexture,vUv);}`);
-  const splatFS=cs(gl.FRAGMENT_SHADER,`precision highp float;precision highp sampler2D;varying vec2 vUv;uniform sampler2D uTarget;uniform float aspectRatio;uniform vec3 color;uniform vec2 point;uniform float radius;void main(){vec2 p=vUv-point.xy;p.x*=aspectRatio;vec3 splat=exp(-dot(p,p)/radius)*color;vec3 base=texture2D(uTarget,vUv).xyz;gl_FragColor=vec4(base+splat,1.);}`);
-  const advFS  =cs(gl.FRAGMENT_SHADER,`precision highp float;precision highp sampler2D;varying vec2 vUv;uniform sampler2D uVelocity,uSource;uniform vec2 texelSize,dyeTexelSize;uniform float dt,dissipation;vec4 bl(sampler2D s,vec2 uv,vec2 ts){vec2 st=uv/ts-.5;vec2 i=floor(st);vec2 f=fract(st);vec4 a=texture2D(s,(i+vec2(.5,.5))*ts);vec4 b=texture2D(s,(i+vec2(1.5,.5))*ts);vec4 c=texture2D(s,(i+vec2(.5,1.5))*ts);vec4 d=texture2D(s,(i+vec2(1.5,1.5))*ts);return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}void main(){#ifdef MF\nvec2 co=vUv-dt*bl(uVelocity,vUv,texelSize).xy*texelSize;vec4 r=bl(uSource,co,dyeTexelSize);\n#else\nvec2 co=vUv-dt*texture2D(uVelocity,vUv).xy*texelSize;vec4 r=texture2D(uSource,co);\n#endif\ngl_FragColor=r/(1.+dissipation*dt);}`,supLinear?null:['MF']);
-  const divFS  =cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv,vL,vR,vT,vB;uniform sampler2D uVelocity;void main(){float L=texture2D(uVelocity,vL).x,R=texture2D(uVelocity,vR).x,T=texture2D(uVelocity,vT).y,B=texture2D(uVelocity,vB).y;vec2 C=texture2D(uVelocity,vUv).xy;if(vL.x<0.)L=-C.x;if(vR.x>1.)R=-C.x;if(vT.y>1.)T=-C.y;if(vB.y<0.)B=-C.y;gl_FragColor=vec4(.5*(R-L+T-B),0.,0.,1.);}`);
-  const curlFS =cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv,vL,vR,vT,vB;uniform sampler2D uVelocity;void main(){float L=texture2D(uVelocity,vL).y,R=texture2D(uVelocity,vR).y,T=texture2D(uVelocity,vT).x,B=texture2D(uVelocity,vB).x;gl_FragColor=vec4(.5*(R-L-T+B),0.,0.,1.);}`);
-  const vortFS =cs(gl.FRAGMENT_SHADER,`precision highp float;precision highp sampler2D;varying vec2 vUv,vL,vR,vT,vB;uniform sampler2D uVelocity,uCurl;uniform float curl,dt;void main(){float L=texture2D(uCurl,vL).x,R=texture2D(uCurl,vR).x,T=texture2D(uCurl,vT).x,B=texture2D(uCurl,vB).x,C=texture2D(uCurl,vUv).x;vec2 f=.5*vec2(abs(T)-abs(B),abs(R)-abs(L));f/=length(f)+.0001;f*=curl*C;f.y*=-1.;vec2 v=texture2D(uVelocity,vUv).xy+f*dt;v=min(max(v,-1000.),1000.);gl_FragColor=vec4(v,0.,1.);}`);
-  const presFS =cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv,vL,vR,vT,vB;uniform sampler2D uPressure,uDivergence;void main(){float L=texture2D(uPressure,vL).x,R=texture2D(uPressure,vR).x,T=texture2D(uPressure,vT).x,B=texture2D(uPressure,vB).x,div=texture2D(uDivergence,vUv).x;gl_FragColor=vec4((L+R+B+T-div)*.25,0.,0.,1.);}`);
-  const gradFS =cs(gl.FRAGMENT_SHADER,`precision mediump float;precision mediump sampler2D;varying highp vec2 vUv,vL,vR,vT,vB;uniform sampler2D uPressure,uVelocity;void main(){float L=texture2D(uPressure,vL).x,R=texture2D(uPressure,vR).x,T=texture2D(uPressure,vT).x,B=texture2D(uPressure,vB).x;vec2 v=texture2D(uVelocity,vUv).xy;v.xy-=vec2(R-L,T-B);gl_FragColor=vec4(v,0.,1.);}`);
-  const dispSrc=`precision highp float;precision highp sampler2D;varying vec2 vUv,vL,vR,vT,vB;uniform sampler2D uTexture;uniform vec2 texelSize;void main(){vec3 c=texture2D(uTexture,vUv).rgb;#ifdef SHADING\nvec3 lc=texture2D(uTexture,vL).rgb,rc=texture2D(uTexture,vR).rgb,tc=texture2D(uTexture,vT).rgb,bc=texture2D(uTexture,vB).rgb;float dx=length(rc)-length(lc),dy=length(tc)-length(bc);vec3 n=normalize(vec3(dx,dy,length(texelSize)));float d=clamp(dot(n,vec3(0.,0.,1.))+.7,.7,1.);c*=d;\n#endif\nfloat a=max(c.r,max(c.g,c.b));gl_FragColor=vec4(c,a);}`;
-
-  const copyPr=new Prog(bVS,copyFS),clearPr=new Prog(bVS,clearFS),splatPr=new Prog(bVS,splatFS);
-  const advPr=new Prog(bVS,advFS),divPr=new Prog(bVS,divFS),curlPr=new Prog(bVS,curlFS);
-  const vortPr=new Prog(bVS,vortFS),presPr=new Prog(bVS,presFS),gradPr=new Prog(bVS,gradFS);
-  const dispMat=new Mat(bVS,dispSrc);
-  dispMat.setKw(['SHADING']);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,-1,1,1,1,1,-1]),gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,gl.createBuffer());
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array([0,1,2,0,2,3]),gl.STATIC_DRAW);
-  gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
-  gl.enableVertexAttribArray(0);
-
-  function blit(tgt){if(tgt==null){gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);gl.bindFramebuffer(gl.FRAMEBUFFER,null);}else{gl.viewport(0,0,tgt.width,tgt.height);gl.bindFramebuffer(gl.FRAMEBUFFER,tgt.fbo);}gl.drawElements(gl.TRIANGLES,6,gl.UNSIGNED_SHORT,0);}
-
-  function mkFBO(w,h,iF,f,t,param){gl.activeTexture(gl.TEXTURE0);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,param);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,param);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,iF,w,h,0,f,t,null);const fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);gl.viewport(0,0,w,h);gl.clear(gl.COLOR_BUFFER_BIT);return{texture:tex,fbo,width:w,height:h,texelSizeX:1/w,texelSizeY:1/h,attach(id){gl.activeTexture(gl.TEXTURE0+id);gl.bindTexture(gl.TEXTURE_2D,tex);return id;}};}
-  function mkDFBO(w,h,iF,f,t,p){let a=mkFBO(w,h,iF,f,t,p),b=mkFBO(w,h,iF,f,t,p);return{width:w,height:h,texelSizeX:a.texelSizeX,texelSizeY:a.texelSizeY,get read(){return a;},set read(v){a=v;},get write(){return b;},set write(v){b=v;},swap(){let tmp=a;a=b;b=tmp;}};}
-  function resizeFBO(tgt,w,h,iF,f,t,p){const n=mkFBO(w,h,iF,f,t,p);copyPr.bind();gl.uniform1i(copyPr.u.uTexture,tgt.attach(0));blit(n);return n;}
-  function resizeDFBO(tgt,w,h,iF,f,t,p){if(tgt.width===w&&tgt.height===h)return tgt;tgt.read=resizeFBO(tgt.read,w,h,iF,f,t,p);tgt.write=mkFBO(w,h,iF,f,t,p);tgt.width=w;tgt.height=h;tgt.texelSizeX=1/w;tgt.texelSizeY=1/h;return tgt;}
-  function getRes(r){let ar=gl.drawingBufferWidth/gl.drawingBufferHeight;if(ar<1)ar=1/ar;const mn=Math.round(r),mx=Math.round(r*ar);return gl.drawingBufferWidth>gl.drawingBufferHeight?{width:mx,height:mn}:{width:mn,height:mx};}
-
-  let dye,vel,diverge,curlB,press;
-  function initFBOs(){const sR=getRes(SIM_RES),dR=getRes(DYE_RES),fil=supLinear?gl.LINEAR:gl.NEAREST;gl.disable(gl.BLEND);dye=dye?resizeDFBO(dye,dR.width,dR.height,fRGBA.internalFormat,fRGBA.format,HFT,fil):mkDFBO(dR.width,dR.height,fRGBA.internalFormat,fRGBA.format,HFT,fil);vel=vel?resizeDFBO(vel,sR.width,sR.height,fRG.internalFormat,fRG.format,HFT,fil):mkDFBO(sR.width,sR.height,fRG.internalFormat,fRG.format,HFT,fil);diverge=mkFBO(sR.width,sR.height,fR.internalFormat,fR.format,HFT,gl.NEAREST);curlB=mkFBO(sR.width,sR.height,fR.internalFormat,fR.format,HFT,gl.NEAREST);press=mkDFBO(sR.width,sR.height,fR.internalFormat,fR.format,HFT,gl.NEAREST);}
-  initFBOs();
-
-  function step(dt){
-    gl.disable(gl.BLEND);
-    curlPr.bind();gl.uniform2f(curlPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);gl.uniform1i(curlPr.u.uVelocity,vel.read.attach(0));blit(curlB);
-    vortPr.bind();gl.uniform2f(vortPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);gl.uniform1i(vortPr.u.uVelocity,vel.read.attach(0));gl.uniform1i(vortPr.u.uCurl,curlB.attach(1));gl.uniform1f(vortPr.u.curl,CURL);gl.uniform1f(vortPr.u.dt,dt);blit(vel.write);vel.swap();
-    divPr.bind();gl.uniform2f(divPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);gl.uniform1i(divPr.u.uVelocity,vel.read.attach(0));blit(diverge);
-    clearPr.bind();gl.uniform1i(clearPr.u.uTexture,press.read.attach(0));gl.uniform1f(clearPr.u.value,PRESSURE);blit(press.write);press.swap();
-    presPr.bind();gl.uniform2f(presPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);gl.uniform1i(presPr.u.uDivergence,diverge.attach(0));
-    for(let i=0;i<PRESSURE_ITER;i++){gl.uniform1i(presPr.u.uPressure,press.read.attach(1));blit(press.write);press.swap();}
-    gradPr.bind();gl.uniform2f(gradPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);gl.uniform1i(gradPr.u.uPressure,press.read.attach(0));gl.uniform1i(gradPr.u.uVelocity,vel.read.attach(1));blit(vel.write);vel.swap();
-    advPr.bind();gl.uniform2f(advPr.u.texelSize,vel.texelSizeX,vel.texelSizeY);if(!supLinear)gl.uniform2f(advPr.u.dyeTexelSize,vel.texelSizeX,vel.texelSizeY);const vid=vel.read.attach(0);gl.uniform1i(advPr.u.uVelocity,vid);gl.uniform1i(advPr.u.uSource,vid);gl.uniform1f(advPr.u.dt,dt);gl.uniform1f(advPr.u.dissipation,VEL_DISS);blit(vel.write);vel.swap();
-    if(!supLinear)gl.uniform2f(advPr.u.dyeTexelSize,dye.texelSizeX,dye.texelSizeY);gl.uniform1i(advPr.u.uVelocity,vel.read.attach(0));gl.uniform1i(advPr.u.uSource,dye.read.attach(1));gl.uniform1f(advPr.u.dissipation,DENSITY_DISS);blit(dye.write);dye.swap();
-  }
-
-  function render(){gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.enable(gl.BLEND);dispMat.bind();gl.uniform2f(dispMat.u.texelSize,1/gl.drawingBufferWidth,1/gl.drawingBufferHeight);gl.uniform1i(dispMat.u.uTexture,dye.read.attach(0));blit(null);}
-
-  function splat(x,y,dx,dy,color){splatPr.bind();gl.uniform1i(splatPr.u.uTarget,vel.read.attach(0));gl.uniform1f(splatPr.u.aspectRatio,canvas.width/canvas.height);gl.uniform2f(splatPr.u.point,x,y);gl.uniform3f(splatPr.u.color,dx,dy,0);let r=SPLAT_RADIUS/100;if(canvas.width/canvas.height>1)r*=canvas.width/canvas.height;gl.uniform1f(splatPr.u.radius,r);blit(vel.write);vel.swap();gl.uniform1i(splatPr.u.uTarget,dye.read.attach(0));gl.uniform3f(splatPr.u.color,color.r,color.g,color.b);blit(dye.write);dye.swap();}
-
-  function genColor(){const h=Math.random();let r,g,b,i=Math.floor(h*6),f=h*6-i,p=0,q=1-f,t=f;switch(i%6){case 0:r=1;g=t;b=p;break;case 1:r=q;g=1;b=p;break;case 2:r=p;g=1;b=t;break;case 3:r=p;g=q;b=1;break;case 4:r=t;g=p;b=1;break;default:r=1;g=p;b=q;}return{r:r*.15,g:g*.15,b:b*.15};}
-  function scl(v){return Math.floor(v*(window.devicePixelRatio||1));}
-
-  let firstMove=false;
-  window.addEventListener('mousemove',e=>{
-    const p=ptrs[0],px=scl(e.clientX),py=scl(e.clientY);
-    if(!firstMove){p.texcoordX=px/canvas.width;p.texcoordY=1-py/canvas.height;p.prevTexcoordX=p.texcoordX;p.prevTexcoordY=p.texcoordY;firstMove=true;p.color=genColor();return;}
-    p.prevTexcoordX=p.texcoordX;p.prevTexcoordY=p.texcoordY;
-    p.texcoordX=px/canvas.width;p.texcoordY=1-py/canvas.height;
-    let dx=p.texcoordX-p.prevTexcoordX,dy=p.texcoordY-p.prevTexcoordY;
-    const ar=canvas.width/canvas.height;if(ar<1)dx*=ar;if(ar>1)dy/=ar;
-    p.deltaX=dx;p.deltaY=dy;p.moved=Math.abs(dx)>0||Math.abs(dy)>0;
-  });
-  window.addEventListener('mousedown',e=>{
-    const p=ptrs[0],px=scl(e.clientX),py=scl(e.clientY);
-    p.texcoordX=px/canvas.width;p.texcoordY=1-py/canvas.height;
-    const c=genColor();c.r*=10;c.g*=10;c.b*=10;
-    splat(p.texcoordX,p.texcoordY,10*(Math.random()-.5),30*(Math.random()-.5),c);
-  });
-  window.addEventListener('touchstart',e=>{const t=e.targetTouches[0],p=ptrs[0];p.texcoordX=scl(t.clientX)/canvas.width;p.texcoordY=1-scl(t.clientY)/canvas.height;p.prevTexcoordX=p.texcoordX;p.prevTexcoordY=p.texcoordY;p.color=genColor();},{passive:true});
-  window.addEventListener('touchmove',e=>{const t=e.targetTouches[0],p=ptrs[0];p.prevTexcoordX=p.texcoordX;p.prevTexcoordY=p.texcoordY;p.texcoordX=scl(t.clientX)/canvas.width;p.texcoordY=1-scl(t.clientY)/canvas.height;let dx=p.texcoordX-p.prevTexcoordX,dy=p.texcoordY-p.prevTexcoordY;const ar=canvas.width/canvas.height;if(ar<1)dx*=ar;if(ar>1)dy/=ar;p.deltaX=dx;p.deltaY=dy;p.moved=true;},{passive:true});
-
-  let lastT=Date.now(),colorT=0;
-  function frame(){
-    const now=Date.now(),dt=Math.min((now-lastT)/1000,0.016666);lastT=now;
-    const w=scl(canvas.clientWidth),h=scl(canvas.clientHeight);
-    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;initFBOs();}
-    colorT+=dt*COLOR_SPEED;if(colorT>=1){colorT=0;ptrs.forEach(p=>p.color=genColor());}
-    ptrs.forEach(p=>{if(p.moved){p.moved=false;splat(p.texcoordX,p.texcoordY,p.deltaX*SPLAT_FORCE,p.deltaY*SPLAT_FORCE,p.color);}});
-    step(dt);render();requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-
-})();
 
 // ══════════════════════════════════════════════════════════════════
 // GALLERY SCROLL-IN ANIMATION
@@ -399,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   observer.observe(gallery);
 });
-
 // ══════════════════════════════════════════════════════════════════
 // MAG-NULL TEXT PRESSURE EFFECT
 // ══════════════════════════════════════════════════════════════════
@@ -407,59 +364,65 @@ document.addEventListener('DOMContentLoaded', function () {
   const container = document.getElementById('mag-null-pressure');
   if (!container) return;
 
-  // Each letter gets its own gradient color (teal → purple → pink like the screenshot)
-  const letterColors = [
-    '#7ECFDE', // M - teal
-    '#6EC6E8', // A - light blue
-    '#A78BFA', // G - purple
-    '#ffffff', // - (dash) - white
-    '#C084FC', // N - violet
-    '#E879A0', // U - pink-purple
-    '#F472B6', // L - pink
-    '#7ECFDE', // L - teal
-  ];
-
   const text = 'MAG-NULL';
-  const h1 = document.createElement('h1');
+  const chars = text.split('');
 
-  text.split('').forEach((ch, i) => {
+  // Build the h1 with spans
+  const h1 = document.createElement('h1');
+  chars.forEach(ch => {
     const span = document.createElement('span');
     span.textContent = ch;
     span.dataset.char = ch;
-    span.style.color = letterColors[i] || '#ffffff';
-    // Start thick
-    span.style.fontVariationSettings = "'wght' 750, 'wdth' 140, 'ital' 0";
+    // Start thick (wght 700, wdth 130) so it looks bold initially
+    span.style.fontVariationSettings = "'wght' 700, 'wdth' 130, 'ital' 0";
     h1.appendChild(span);
   });
-
   container.appendChild(h1);
 
   const spanEls = Array.from(h1.querySelectorAll('span'));
+
   const mouse = { x: 0, y: 0 };
   const cursor = { x: 0, y: 0 };
 
-  const r = container.getBoundingClientRect();
-  mouse.x = cursor.x = r.left + r.width / 2;
-  mouse.y = cursor.y = r.top + r.height / 2;
+  // Init cursor to center of container
+  const rect = container.getBoundingClientRect();
+  mouse.x = cursor.x = rect.left + rect.width / 2;
+  mouse.y = cursor.y = rect.top + rect.height / 2;
 
-  window.addEventListener('mousemove', e => { cursor.x = e.clientX; cursor.y = e.clientY; });
-  window.addEventListener('touchmove', e => { cursor.x = e.touches[0].clientX; cursor.y = e.touches[0].clientY; }, { passive: true });
+  window.addEventListener('mousemove', e => {
+    cursor.x = e.clientX;
+    cursor.y = e.clientY;
+  });
+  window.addEventListener('touchmove', e => {
+    cursor.x = e.touches[0].clientX;
+    cursor.y = e.touches[0].clientY;
+  }, { passive: true });
 
-  function dist(a, b) { return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2); }
-  function getAttr(d, maxD, minV, maxV) { return Math.max(minV, (maxV - Math.abs(maxV * d / maxD)) + minV); }
+  function dist(a, b) {
+    return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+  }
+
+  function getAttr(distance, maxDist, minVal, maxVal) {
+    const val = maxVal - Math.abs((maxVal * distance) / maxDist);
+    return Math.max(minVal, val + minVal);
+  }
 
   function animate() {
     mouse.x += (cursor.x - mouse.x) / 15;
     mouse.y += (cursor.y - mouse.y) / 15;
 
-    const maxDist = h1.getBoundingClientRect().width / 2;
+    const titleRect = h1.getBoundingClientRect();
+    const maxDist = titleRect.width / 2;
 
     spanEls.forEach(span => {
-      const sr = span.getBoundingClientRect();
-      const d = dist(mouse, { x: sr.x + sr.width / 2, y: sr.y + sr.height / 2 });
-      const wght = Math.floor(getAttr(d, maxDist, 200, 900));
-      const wdth = Math.floor(getAttr(d, maxDist, 60, 200));
+      const r = span.getBoundingClientRect();
+      const center = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      const d = dist(mouse, center);
+
+      const wght = Math.floor(getAttr(d, maxDist, 100, 900));
+      const wdth = Math.floor(getAttr(d, maxDist, 5, 200));
       const ital = getAttr(d, maxDist, 0, 1).toFixed(2);
+
       span.style.fontVariationSettings = `'wght' ${wght}, 'wdth' ${wdth}, 'ital' ${ital}`;
     });
 
