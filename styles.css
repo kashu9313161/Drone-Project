@@ -254,7 +254,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;
 /* ── Hero ── */
 #hero{
   min-height:100vh;display:flex;flex-direction:column;
-  background: linear-gradient(135deg, #0D2137 0%, #0A3550 40%, #0A6E8A 100%);
+  background: linear-gradient(135deg, #0D2137 0%, #0f2e41 40%, #032730 100%);
   position:relative;overflow:hidden;
 }
 .hero-grid{
@@ -706,9 +706,10 @@ pre.code-block{
   align-items: center;
 }
 #mag-null-pressure h1 {
-  font-family: 'Compressa VF', sans-serif;
+  font-family: var(--f-display);
   text-transform: uppercase;
-  font-weight: 100;
+  font-weight: 900 !important;
+  letter-spacing: 6px;
   white-space: nowrap;
   width: 100%;
   margin: 0;
@@ -716,7 +717,7 @@ pre.code-block{
   justify-content: space-between;
   user-select: none;
   line-height: 1;
-  font-size: 80px;
+  font-size: 72px;
 }
 #mag-null-pressure h1 span {
   display: inline-block;
