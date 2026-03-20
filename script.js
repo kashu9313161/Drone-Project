@@ -148,7 +148,27 @@ else:
   updateSwarm(state.swarm);
   updatePipe(state.pipe_flags);
   updateHeader(state);
-}`,tags:[{t:'13 Hz render',c:'green'},{t:'Single putImageData',c:'blue'},{t:'Auto-reconnect',c:'blue'}]}
+}`,tags:[{t:'13 Hz render',c:'green'},{t:'Single putImageData',c:'blue'},{t:'Auto-reconnect',c:'blue'}]},
+  {num:'12',name:'NEXUS Node Network',tagline:'Fiber mesh · 0.1ms broadcast · zero single point of failure',title:'Stage 12: NEXUS — Multi-Node Defense Network',sub:'Transforms isolated detection nodes into a unified defense organism — when one node sees a threat, every node on the network responds before the drone arrives.',body:`<p>NEXUS is the communication backbone that connects all MAG_NULL nodes into a unified defense network, enabling real-time intelligence sharing so that a threat detected at one node is instantly known across all others. It is built on a buried fiber ring, chosen for its speed, resistance to jamming, and low detectability, with fallback layers including Ethernet and WiFi mesh to ensure continuous operation through graceful degradation. The ring topology eliminates single points of failure, allowing data to reroute automatically if any segment is damaged. NEXUS uses RF fingerprinting and UDP multicast to broadcast identified drone signatures across the network, allowing receiving nodes to skip redundant classification and reduce detection latency from ~50 ms to under 1 ms. Security is enforced through HMAC-SHA256 packet signing and strict timestamp validation to prevent tampering and replay attacks. Additionally, swarm pre-emption logic enables nodes to enter a heightened detection state when coordinated drone activity is detected, improving response readiness. The system also feeds network-wide status, threat alerts, and topology data into the operator dashboard, ensuring complete situational awareness across the entire defense perimeter.</p>`,
+    code:`# NEXUS fires automatically after Stage 09
+# Two additions to existing pipeline:
+
+# ADDITION 1 — Before Stage 06 (fast path)
+fp = fingerprinter.compute(hop_ms, bw_khz, chirp, ofdm, proto)
+cached = nexus.check_cache(fp)
+if cached:
+    threat_level = cached.threat_level   # skip Stage 06
+    confidence   = 0.99                  # pre-confirmed by peer node
+
+# ADDITION 2 — After Stage 09 (broadcast)
+if swarm_score > 65 or global_threat in ('CRITICAL','TERMINAL'):
+    nexus.broadcast(contacts, swarm_score, global_threat)`,
+    tags:[{ t: '0.1ms fiber broadcast', c: 'green'  },
+    { t: 'HMAC-SHA256 signed',    c: 'blue'   },
+    { t: '3-tier resilient',      c: 'blue'   },
+    { t: 'RF fingerprint cache',  c: 'amber'  },
+    { t: 'Swarm pre-emption',     c: 'red'    },
+    { t: 'Zero single point of failure', c: 'green' },]}
 ];
 
 function renderPipeline() {
